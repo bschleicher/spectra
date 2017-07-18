@@ -1,0 +1,114 @@
+import ROOT
+
+import numpy as np
+import multiprocessing as mp
+
+result = ROOT.gSystem.Load('libmars.so')
+if result != 0:
+    raise ImportError('Could not load libmars, Make sure to set your "LD_LIBRARY_PATH"')
+
+
+
+
+def calc_a_eff_old(ebins, zdbins, path="/media/michi/523E69793E69574F/daten/"):
+    mcfiles = ROOT.TChain("OriginalMC")
+    events = ROOT.TChain("Events")
+
+    events.Add(path + "gamma/hzd_gammasall-analysis.root")
+
+    ceres_list = list(open(path + "gamma/li_ceresall.txt", "r"))
+    for entry in ceres_list:
+        mcfiles.Add(entry[:-1])
+
+    simulated = ROOT.TH2D("simulated", "Original MC", len(ebins) - 1, ebins, len(zdbins) - 1, zdbins)
+    surviving = ROOT.TH2D("surviving", "Events Surviving Cuts", len(ebins) - 1, ebins, len(zdbins) - 1, zdbins)
+
+    mcfiles.SetAlias("Zd", "(MMcEvtBasic.fTelescopeTheta*360)/(2*TMath::Pi())")
+    events.SetAlias("Zd", "MPointingPos.fZd")
+    mcfiles.SetAlias("Mc", "MMcEvtBasic.fEnergy")
+    events.SetAlias("Mc", "MMcEvt.MMcEvtBasic.fEnergy")
+    events.SetAlias("E", "(pow(29.65*MHillas.fSize,(0.77/cos((MPointingPos.fZd * 1.35 * TMath::Pi())/360))))")
+
+    mcfiles.Draw("Zd:Mc>>simulated", "(Zd<30)*4+(Zd>=30)", "goff")
+    events.Draw("Zd:Mc>>surviving", "(DataType.fVal>0.5)&&(ThetaSquared.fVal<0.085)", "goff")
+
+    surviving.Divide(simulated)
+    # surviving.Scale(np.pi * (54000.0 * 54000.0))
+
+    a_eff = np.zeros((len(zdbins) - 1, len(ebins) - 1))
+    for i in range(len(ebins) - 1):
+        for j in range(len(zdbins) - 1):
+            a_eff[j, i] = surviving.GetBinContent(i + 1, j + 1)  # +1, da in ROOT bin 0 der underflow bin ist.
+    return a_eff
+
+def calc_a_eff(e, zd, use_mc=True, theta_square_cut="0.085"):
+
+    name = "/media/michi/523E69793E69574F/daten/a_eff/" + "ebins" + str(len(ebins) - 1) + "_zdbins" + str(
+        len(zdbins) - 1) + "emc_" + str(use_mc) + "theta_sq" + theta_square_cut
+
+
+    ebins = np.logspace(np.log10(200), np.log10(50000), e)
+    zdbins = np.linspace(0, 60, zd)
+
+    if os.path.isfile(name):
+        a_eff = np.load(name)
+        if not (a_eff.shape == (len(zdbins)-1,len(ebins)-1)):
+            print("Shape of effective area is wrong, delete the old file:",name)
+    else:
+
+        if os.path.isfile("/media/michi/523E69793E69574F/daten/a_eff/n_mc_histo")
+        MCFiles = ROOT.TChain("OriginalMC")
+        ceres_list = list(open("/media/michi/523E69793E69574F/gamma/ceres/li_ceresall.txt", "r"))
+        for entry in ceres_list:
+            MCFiles.Add(entry[:-1])
+        simulated = ROOT.TH2D("simulated", "Original MC", len(ebins) - 1, ebins, len(zdbins) - 1, zdbins)
+        MCFiles.SetAlias("Zd", "(MMcEvtBasic.fTheta*360)/(2*TMath::Pi())")
+        MCFiles.SetAlias("Mc", "MMcEvtBasic.fEnergy")
+        MCFiles.Draw("Zd:Mc>>simulated", "(Zd<30)*4+(Zd>=30)", "goff")
+
+
+        Events = ROOT.TChain("Events")
+        Events.Add("/media/michi/523E69793E69574F/gamma/star_new/hzd_gammasall-analysis.root")
+
+        surviving = ROOT.TH2D("surviving", "Events Surviving Cuts", len(ebins) - 1, ebins, len(zdbins) - 1, zdbins)
+
+        Events.SetAlias("Zd", "MPointingPos.fZd")
+        Events.SetAlias("Mc", "MMcEvt.MMcEvtBasic.fEnergy")
+        Events.SetAlias("E", "(pow(29.65*MHillas.fSize,(0.77/cos((MPointingPos.fZd * 1.35 * TMath::Pi())/360))))")
+
+        cut = "(DataType.fVal>0.5)&&(ThetaSquared.fVal<" + theta_square_cut + ")"
+        if use_mc:
+            Events.Draw("Zd:Mc>>surviving", cut, "goff")
+        else:
+            Events.Draw("Zd:E>>surviving", cut, "goff")
+
+        surviving.Divide(simulated)
+
+        surviving.Scale(np.pi * (54000.0 * 54000.0))
+
+        a_eff = np.zeros((len(zdbins) - 1, len(ebins) - 1))
+        for i in range(len(ebins) - 1):
+            for j in range(len(zdbins) - 1):
+                a_eff[j, i] = surviving.GetBinContent(i+1, j+1) # +1, da in ROOT bin 0 der underflow bin ist.
+
+        np.save(name,a_eff)
+    return zd*e
+
+result_list = []
+def log_result(result):
+    # This is called whenever foo_pool(i) returns a result.
+    # result_list is modified only by the main process, not the pool workers.
+    result_list.append(result)
+
+def apply_async_with_callback():
+    pool = mp.Pool()
+    for e in range(3,17):
+        for zd in range(2,61):
+            pool.apply_async(calc_a_eff, args = (e, zd), callback = log_result)
+    pool.close()
+    pool.join()
+    print(result_list)
+
+
+if __name__ == '__main__':
+    apply_async_with_callback()

@@ -1,0 +1,104 @@
+import ROOT
+import pandas as pd
+import os
+from tqdm import tqdm
+
+
+result = ROOT.gSystem.Load('libmars.so')
+if result != 0:
+    raise ImportError(
+        'Could not load libmars, Make sure to set your "LD_LIBRARY_PATH"'
+    )
+
+from astropy import time as at
+# %matplotlib inline
+import matplotlib as ml
+import numpy as np
+import fact
+
+plt = ml.pyplot
+from matplotlib.colors import LogNorm
+#ml.rcParams['figure.figsize'] = (20.0, 10.0)
+
+
+def read_mars(filename, tree='Events', leaves=[], verbose=False):
+    f = ROOT.TFile(filename)
+    tree = f.Get(tree)
+    n_events = tree.GetEntries()
+    if not leaves:
+        leaves = [l.GetName() for l in tree.GetListOfLeaves() if
+            not (l.GetName().endswith('.') or l.GetName().endswith('fBits') or l.GetName().endswith('fUniqueID'))]
+
+    events = []
+    for i in tqdm(range(n_events), disable=not verbose):
+        tree.GetEntry(i)
+
+        events.append({})
+        for leaf in leaves:
+            events[-1][leaf] = tree.GetLeaf(leaf).GetValue()
+
+    f.Close()
+
+    return pd.DataFrame(events)
+
+select_leaves = ["MMcEvt.MMcEvtBasic.fEnergy","MHillas.fSize","MPointingPos.fZd","MNewImagePar.fLeakage2","ThetaSquared.fVal"]
+gamma = read_mars("/media/michi/523E69793E69574F/gamma/star_new/hzd_gammasall-analysis.root", leaves=select_leaves)
+gamma['theta'] = pd.cut(gamma["ThetaSquared.fVal"], [0, 0.085, 10], labels=[0, 1], include_lowest=True)
+
+gamma = gamma.groupby('theta').get_group(0)
+
+
+gamma = gamma.assign(energy = lambda x: (np.power(20*x["MHillas.fSize"],(0.80/np.cos((x["MPointingPos.fZd"]*1.4*3.14)/360)) )+x["MNewImagePar.fLeakage2"]*13000))
+
+from matplotlib.widgets import Slider, Button, RadioButtons
+
+def energy(gamma, a, b, c):
+    gamma = gamma.assign(energy = lambda x: (np.power(a*x["MHillas.fSize"],(b/np.cos((x["MPointingPos.fZd"]*c*3.14)/360)) )+x["MNewImagePar.fLeakage2"]*13000))
+    return gamma["energy"]
+
+axis_color = 'lightgoldenrodyellow'
+fig = plt.figure()
+
+# Draw the plot
+ax = fig.add_subplot(111)
+fig.subplots_adjust(left=0.25, bottom=0.25)
+a_0 = 20.0
+b_0 = 0.80
+c_0 = 1.4
+line = ax.hist2d(np.log10(gamma["MMcEvt.MMcEvtBasic.fEnergy"]),np.log10(gamma["energy"]),bins=100)
+ax.set_xlim([2,4.8])
+ax.set_ylim([2, 5])
+ax.plot([2,5],[2,5])
+
+# Add two sliders for tweaking the parameters
+a_slider_ax  = fig.add_axes([0.25, 0.15, 0.65, 0.03], axisbg=axis_color)
+a_slider = Slider(a_slider_ax, 'a', 3.0, 70.0, valinit=a_0)
+b_slider_ax = fig.add_axes([0.25, 0.1, 0.65, 0.03], axisbg=axis_color)
+b_slider = Slider(b_slider_ax, 'b', 0.2, 3, valinit=b_0)
+c_slider_ax = fig.add_axes([0.25, 0.05, 0.65, 0.03], axisbg=axis_color)
+c_slider = Slider(c_slider_ax, 'c', 0.5, 2.5, valinit=c_0)
+
+
+def sliders_on_changed(val):
+
+    ydata = energy(gamma, a_slider.val, b_slider.val, c_slider.val)
+    ax.clear()
+    ax.hist2d(np.log10(gamma["MMcEvt.MMcEvtBasic.fEnergy"]), np.log10(ydata), bins=100, norm=LogNorm())
+    ax.plot([2, 5], [2, 5])
+    fig.canvas.draw_idle()
+a_slider.on_changed(sliders_on_changed)
+b_slider.on_changed(sliders_on_changed)
+c_slider.on_changed(sliders_on_changed)
+
+# Add a button for resetting the parameters
+reset_button_ax = fig.add_axes([0.8, 0.025, 0.1, 0.04])
+reset_button = Button(reset_button_ax, 'Reset', color=axis_color, hovercolor='0.975')
+def reset_button_on_clicked(mouse_event):
+    a_slider.reset()
+    b_slider.reset()
+    c_slider.reset()
+reset_button.on_clicked(reset_button_on_clicked)
+
+
+
+plt.show()
