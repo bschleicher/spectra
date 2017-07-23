@@ -39,9 +39,9 @@ if __name__ == '__main__':
     zdbins = np.linspace(0, 60, 15)
     ebins = np.logspace(np.log10(200.0), np.log10(50000.0), 11)
     use_mc = False
-    star_list = list(open("/media/michi/523E69793E69574F/daten/crab2.txt", "r"))
+    star_list = list(open("/media/michi/523E69793E69574F/daten/hzd_mrk501.txt", "r"))
     # On ISDC, put None, to read automatically processed Ganymed Output from star files:
-    ganymed_result = "/media/michi/523E69793E69574F/daten/crab2-analysis.root"
+    ganymed_result = "/media/michi/523E69793E69574F/daten/hzd_mrk501-analysis.root"
     base_path = "/media/michi/523E69793E69574F/daten/"
 
     zdlabels = range(len(zdbins) - 1)
@@ -142,8 +142,8 @@ if __name__ == '__main__':
     ax1 = plt.subplot(121)
 
     plt.errorbar(x=bin_centers, y=flux_de, yerr=[flux_de_l, flux_de_h], fmt="o", label="FACT")
-    # plt.errorbar(x=hess_x * 1000, y=hess_y, yerr=[hess_yl, hess_yh], fmt=".")
-    plt.errorbar(x=crab_do_x, y=crab_do_y, yerr=crab_do_y_err, fmt="o", label="Crab Dortmund")
+    plt.errorbar(x=hess_x * 1000, y=hess_y, yerr=[hess_yl, hess_yh], fmt=".")
+    # plt.errorbar(x=crab_do_x, y=crab_do_y, yerr=crab_do_y_err, fmt="o", label="Crab Dortmund")
     plt.xscale("log")
     plt.yscale("log")
     plt.grid(True)
@@ -153,7 +153,7 @@ if __name__ == '__main__':
 
     ax2 = plt.subplot(222, sharex=ax1)
 
-    plt.errorbar(x=bin_centers, y=np.sum(exc_histo, axis=0), fmt="o", label="Counts")
+    plt.errorbar(x=bin_centers, y=np.sum(exc_histo, axis=0), fmt=".", label="Counts")
     plt.xscale("log")
     plt.yscale("log")
     plt.grid(True)
@@ -162,7 +162,7 @@ if __name__ == '__main__':
     plt.legend()
 
     ax3 = plt.subplot(224, sharex=ax1)
-    plt.errorbar(x=bin_centers, y=li_ma_significance(np.sum(exc_histo, axis=0), np.sum(exc_histo_err, axis=0)), fmt="o",
+    plt.errorbar(x=bin_centers, y=li_ma_significance(np.sum(exc_histo, axis=0), np.sum(exc_histo_err, axis=0)), fmt=".",
                  label="LiMa Significance")
     plt.xscale("log")
     plt.grid(True)

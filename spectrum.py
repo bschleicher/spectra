@@ -12,6 +12,12 @@ import read_mars
 
 
 def symmetric_log10_errors(value, error):
+    """ Calculate upper and lower error, that appear symmetric in loglog-plots.
+    
+    :param value: ndarray or float
+    :param error: ndarray or float
+    :return: array of lower error and upper error.
+    """
     error /= (value * np.log(10))
     error_l = value - np.ma.power(10, (np.ma.log10(value) - error))
     error_h = np.ma.power(10, (np.ma.log10(value) + error)) - value
@@ -20,7 +26,7 @@ def symmetric_log10_errors(value, error):
 
 def read_and_select_data(entry, tree_name, leafs, zdbinsr, zdlabelsr, ebinsr, elabelsr, thetasqr):
     temp = read_mars.read_mars(entry, tree=tree_name, leaf_names=leafs)
-    # Apply Johannes Cut Area < log10(Size) * 898 -1535
+    # Apply Johannes Cut: Area < log10(Size) * 898 -1535
     temp = pd.DataFrame(temp[temp.apply(
         lambda x: (np.pi * x['MHillas.fLength'] * x['MHillas.fWidth']) < (np.log10(x['MHillas.fSize']) * 898 - 1535),
         axis=1)], columns=leafs)
@@ -39,7 +45,7 @@ def histos_from_list_of_mars_files(file_list, leaf_names, zdbinsh, zdlabelsh, eb
     pool.close()
     pool.join()
     for res in result:
-        histos = histos + res.get()
+        histos += res.get()
 
     return np.array(histos)
 
@@ -77,9 +83,9 @@ if __name__ == '__main__':
     # If False, effective area is calculated with estimated energy and not MC energy.
 
     thetasq = 0.07
-    zdbins = np.linspace(0, 60, 15)
+    zdbins = np.linspace(0, 60, 21)
     ebins = np.logspace(np.log10(200.0), np.log10(50000.0), 11)
-    use_mc = False
+    use_mc = True
     star_files = ["/media/michi/523E69793E69574F/daten/hzd_mrk501.txt"]
     # On ISDC, put None, to read automatically processed Ganymed Output from star files:
     ganymed_result = None
@@ -230,9 +236,8 @@ if __name__ == '__main__':
     plt.colorbar()
 
     fig.add_subplot(gs[0, :])
-    # plt.text(0.0, 0.0, "On Time: {0:8.2f} h\n".format(np.sum(on_time_per_zd) / (60 * 60))
-    #         + "$\mathrm{\sigma_{LiMa}}$: " + "{0:3.2f}\n".format(overall_significance)
-    #         + "ZD min: {0:2.2f} $\deg$\n".format(ZD_min) + "ZD max: {0:2.2f} $\deg$".format(ZD_max))
+    plt.text(0.0, 0.0, "On Time: {0:8.2f} h\n".format(np.sum(on_time_per_zd) / (60 * 60))
+             + "$\mathrm{\sigma_{LiMa}}$: " + "{0:3.2f}\n".format(overall_significance))
     plt.axis("off")
 
     plt.show()
