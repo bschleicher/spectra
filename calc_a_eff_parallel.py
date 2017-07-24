@@ -32,8 +32,8 @@ def calc_num_mc_entries(ebins, zdbins, n_chunks, chunk, path):
 def calc_a_eff_parallel(ebins, zdbins, use_mc=True, theta_square_cut="0.085", path="/home/guest/mblank/", n_chunks=8):
     """ Reads or calculates the effective area.
     
-    Returns the effective area(energy, zenith distance) with binning specified in the one dimensional
-    arrays of the bin-edges ebins and zdbins in cm² and saves it to a numpy file with a filename reflecting
+    Returns the effective area(energy, zenith distance) in cm² with binning specified in the one dimensional
+    arrays of the bin-edges ebins and zdbins and saves it to a numpy file with a filename reflecting
     the parameters in "path"+a_eff/.
     
     The value of each bin is calculated from the number of events surviving the analysis chain n and from the
@@ -64,16 +64,19 @@ def calc_a_eff_parallel(ebins, zdbins, use_mc=True, theta_square_cut="0.085", pa
     :param n_chunks: int, Number of chunks, into which the read-in of simulated events is divided to. (Standard = 8)
     :return: ndarray, histogram of 2D effective area(energy, zenith distance)
     """
+
+    print("\n Calculate the effective area. ---------")
+
     name = path + "a_eff/" + "ebins" + str(len(ebins) - 1) + "_zdbins" + str(
         len(zdbins) - 1) + "emc_" + str(use_mc) + "theta_sq" + theta_square_cut
 
     if os.path.isfile(name + ".npy"):
-        print("Numpy file of effective area exists. Trying to read it.")
+        print("    Numpy file of effective area exists. Trying to read it.")
         a_eff = np.load(name + ".npy")
         if not (a_eff.shape == (len(zdbins) - 1, len(ebins) - 1)):
-            print("Shape of effective area is wrong, please delete the old file and run again:", name)
+            print("    Shape of effective area is wrong, please delete the old file and run again:", name)
     else:
-        print("Loading surviving gammas.")
+        print("    Loading surviving gammas.")
         Events = ROOT.TChain("Events")
         Events.Add(path + "gamma/hzd_gammasall-analysis.root")
 
@@ -97,10 +100,10 @@ def calc_a_eff_parallel(ebins, zdbins, use_mc=True, theta_square_cut="0.085", pa
         mc_name = path + "a_eff/n_mc_histo" + "_e" + str(len(ebins) - 1) + "_zd" + str(
             len(zdbins - 1))
         if os.path.isfile(mc_name + ".npy"):
-            print("Loading existing histogram of simulated Gammas in correct binning:", mc_name+".npy")
+            print("    Loading existing histogram of simulated Gammas in correct binning:", mc_name+".npy")
             n_mc = np.load(mc_name + ".npy")
         else:
-            print("Calculating histogram of simulated Gammas from callisto root files.")
+            print("    Calculating histogram of simulated Gammas from callisto root files.")
             n_mc_parts = np.zeros([n_chunks, len(zdbins) - 1, len(ebins) - 1])
 
             pool = mp.Pool()
@@ -116,7 +119,9 @@ def calc_a_eff_parallel(ebins, zdbins, use_mc=True, theta_square_cut="0.085", pa
             np.save(mc_name, n_mc)
 
         a_eff = np.divide(n_surviving, n_mc) * (np.pi * (54000.0 * 54000.0))
-        print("Saving effective area to", name)
+        print("    Saving effective area to", name)
         np.save(name, a_eff)
+
+    print("--------- Returning the effective area.")
 
     return a_eff

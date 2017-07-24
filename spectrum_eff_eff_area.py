@@ -1,5 +1,6 @@
 import on_time_parallel
 import calc_a_eff_parallel
+import read_data
 
 import pandas as pd
 from astropy import time as at
@@ -9,23 +10,20 @@ import numpy as np
 from fact.analysis.statistics import li_ma_significance
 import multiprocessing as mp
 import read_mars
+import matplotlib.colors as colors
 
 
-def read_list_of_mars_files(file_list, leaf_names):
-    n_files = len(file_list)
-    file_list = [entry.strip().replace(" ", "/").replace("star", "ganymed_run").replace("_I", "-analysis") for entry
-                 in file_list if not entry.startswith('#')]
+def symmetric_log10_errors(value, error):
+    """ Calculate upper and lower error, that appear symmetric in loglog-plots.
 
-    df = pd.DataFrame(columns=leaf_names)
-
-    pool = mp.Pool()
-    result = [pool.apply_async(read_mars.read_mars, args=(file_list[i], 'Events', leaf_names)) for i in range(n_files)]
-    pool.close()
-    pool.join()
-    for r in range(n_files):
-        df = pd.concat([df, result[r]], axis=0)
-
-    return df
+    :param value: ndarray or float
+    :param error: ndarray or float
+    :return: array of lower error and upper error.
+    """
+    error /= (value * np.log(10))
+    error_l = value - np.ma.power(10, (np.ma.log10(value) - error))
+    error_h = np.ma.power(10, (np.ma.log10(value) + error)) - value
+    return [error_l, error_h]
 
 
 if __name__ == '__main__':
@@ -35,16 +33,18 @@ if __name__ == '__main__':
     # Energy Bins, MC are av. from 0.2 to 50 TeV
     # If False, effective area is calculated with estimated energy and not MC energy.
 
-    thetasq = 0.07
+    thetasq = 0.026
     zdbins = np.linspace(0, 60, 15)
     ebins = np.logspace(np.log10(200.0), np.log10(50000.0), 11)
     use_mc = False
     star_list = list(open("/media/michi/523E69793E69574F/daten/hzd_mrk501.txt", "r"))
     # On ISDC, put None, to read automatically processed Ganymed Output from star files:
-    ganymed_result = "/media/michi/523E69793E69574F/daten/hzd_mrk501-analysis.root"
+    ganymed_result = None
     base_path = "/media/michi/523E69793E69574F/daten/"
 
+    # Create the labels for binning in energy and zenith distance.
     zdlabels = range(len(zdbins) - 1)
+    elabels = range(len(ebins) - 1)
 
     # Calcualtion of on time from ganymed input list of star files:
 
@@ -55,32 +55,25 @@ if __name__ == '__main__':
 
     select_leaves = ['DataType.fVal', 'MPointingPos.fZd', 'FileId.fVal', 'MTime.fMjd', 'MTime.fTime.fMilliSec',
                      'MTime.fNanoSec', 'MHillas.fSize', 'ThetaSquared.fVal', 'MNewImagePar.fLeakage2']
+    on_off_histos = np.zeros([2, len(zdlabels), len(elabels)])
+
     if not ganymed_result:
-        data_cut = read_list_of_mars_files(star_list, leaf_names=select_leaves)
+        print("\nRead data from Star files. ---------")
+        on_off_histos = read_data.histos_from_list_of_mars_files(star_list, select_leaves, zdbins,
+                                                                 zdlabels, ebins, elabels, thetasq)
+
     else:
+        print("\nRead data from output ganymed file ---------")
         data_cut = read_mars.read_mars(ganymed_result, leaf_names=select_leaves)
+        on_off_histos = read_data.calc_onoffhisto(data_cut, zdbins, zdlabels, ebins, elabels, thetasq)
 
-    data_cut = data_cut.assign(energy=lambda x: (
-        np.power(29.65 * x["MHillas.fSize"], (0.77 / np.cos((x["MPointingPos.fZd"] * 1.35 * np.pi) / 360))) + x[
-            "MNewImagePar.fLeakage2"] * 13000))
+    print("--------- Finished reading data.")
 
-    # Bin the data in ZD, Energy and theta:
+    print(on_off_histos)
+    print(on_off_histos.shape)
 
-    data_cut['Zdbin'] = pd.cut(data_cut["MPointingPos.fZd"], zdbins, labels=zdlabels, include_lowest=True)
-
-    elabels = range(len(ebins) - 1)
-
-    data_cut['Ebin'] = pd.cut(data_cut["energy"], ebins, labels=elabels, include_lowest=True)
-    data_cut['theta'] = pd.cut(data_cut["ThetaSquared.fVal"], [0, thetasq, 10], labels=[0, 1], include_lowest=True)
-
-    # Group by theta to split in on and off data and create histograms for on, off and excess events:
-
-    theta_data = data_cut.groupby('theta').get_group(0)
-    on_data = theta_data.groupby('DataType.fVal').get_group(1.0)
-    off_data = theta_data.groupby('DataType.fVal').get_group(0.0)
-
-    on_histo = np.histogram2d(on_data["MPointingPos.fZd"], on_data["energy"], bins=[zdbins, ebins])[0]
-    off_histo = np.histogram2d(off_data["MPointingPos.fZd"], off_data["energy"], bins=[zdbins, ebins])[0]
+    on_histo = on_off_histos[0]
+    off_histo = on_off_histos[1]
 
     exc_histo = on_histo - (1 / 5) * off_histo
     exc_histo_err = np.sqrt(on_histo + (1 / 25) * off_histo)
@@ -100,11 +93,11 @@ if __name__ == '__main__':
     a_eff = (a_eff * on_time_per_zd[:, np.newaxis]) / np.sum(on_time_per_zd)
     flux = np.divide(np.sum(exc_histo, axis=0), np.sum(a_eff, axis=0))
     flux = np.divide(flux, (np.sum(on_time_per_zd)))
-    flux_err = np.ma.divide(np.sqrt(np.sum(on_histo, axis=0)+ (1/25) * np.sum(off_histo, axis=0)),
-                              np.sum(a_eff, axis=0)) / np.sum(on_time_per_zd)
+    flux_err = np.ma.divide(np.sqrt(np.sum(on_histo, axis=0) + (1/25) * np.sum(off_histo, axis=0)),
+                            np.sum(a_eff, axis=0)) / np.sum(on_time_per_zd)
     sig = li_ma_significance(on_histo, off_histo)
     # flux_e = np.ma.average(flux2d, axis=0, weights=sig)
-    #flux_e_err = np.sqrt(np.ma.average((flux2d_err ** 2), axis=0, weights=sig))
+    # flux_e_err = np.sqrt(np.ma.average((flux2d_err ** 2), axis=0, weights=sig))
 
     bin_centers = np.power(10, (np.log10(ebins[1:]) + np.log10(ebins[:-1])) / 2)
     bin_width = ebins[1:] - ebins[:-1]
@@ -136,14 +129,16 @@ if __name__ == '__main__':
 
     flux_de = (flux / (bin_width / 1000))
     flux_de_err = ((flux_err / (bin_width / 1000)) / (flux_de * np.log(10)))
-    flux_de_l = flux_de - np.power(10, (np.log10(flux_de) - flux_de_err))
-    flux_de_h = np.power(10, (np.log10(flux_de) + flux_de_err)) - flux_de
+    flux_de_err_log10 = symmetric_log10_errors(flux_de, flux_de_err)
 
+    plt.figure("Spectrum")
     ax1 = plt.subplot(121)
 
-    plt.errorbar(x=bin_centers, y=flux_de, yerr=[flux_de_l, flux_de_h], fmt="o", label="FACT")
-    plt.errorbar(x=hess_x * 1000, y=hess_y, yerr=[hess_yl, hess_yh], fmt=".")
-    # plt.errorbar(x=crab_do_x, y=crab_do_y, yerr=crab_do_y_err, fmt="o", label="Crab Dortmund")
+    plt.errorbar(x=bin_centers, y=flux_de, yerr=flux_de_err_log10, xerr=[bin_centers-ebins[:-1], ebins[1:]-bin_centers],
+                 fmt=".", label="FACT")
+    plt.errorbar(x=hess_x * 1000, y=hess_y, yerr=[hess_yl, hess_yh], fmt=".", label="HESS 24.06.2014")
+    # plt.errorbar(x=crab_do_x, y=crab_do_y, yerr=crab_do_y_err, xerr=[crab_do_x-crab_do_x_l,crab_do_x_h-crab_do_x],
+    #  fmt="o", label="Crab Dortmund")
     plt.xscale("log")
     plt.yscale("log")
     plt.grid(True)
@@ -153,7 +148,7 @@ if __name__ == '__main__':
 
     ax2 = plt.subplot(222, sharex=ax1)
 
-    plt.errorbar(x=bin_centers, y=np.sum(exc_histo, axis=0), fmt=".", label="Counts")
+    plt.errorbar(x=bin_centers, y=np.sum(exc_histo, axis=0), fmt="o", label="Counts")
     plt.xscale("log")
     plt.yscale("log")
     plt.grid(True)
@@ -162,7 +157,7 @@ if __name__ == '__main__':
     plt.legend()
 
     ax3 = plt.subplot(224, sharex=ax1)
-    plt.errorbar(x=bin_centers, y=li_ma_significance(np.sum(exc_histo, axis=0), np.sum(exc_histo_err, axis=0)), fmt=".",
+    plt.errorbar(x=bin_centers, y=li_ma_significance(np.sum(on_histo, axis=0), np.sum(off_histo, axis=0)), fmt="o",
                  label="LiMa Significance")
     plt.xscale("log")
     plt.grid(True)
@@ -170,28 +165,38 @@ if __name__ == '__main__':
     plt.ylabel(" $\mathrm{\sigma}$")
     plt.legend()
 
-    ZD_min = data_cut["MPointingPos.fZd"].min()
-    ZD_max = data_cut["MPointingPos.fZd"].max()
+    # ZD_min = data_cut["MPointingPos.fZd"].min()
+    # ZD_max = data_cut["MPointingPos.fZd"].max()
 
-    fig = plt.figure()
+    fig = plt.figure("2D Plots")
+    gs = gspec.GridSpec(2, 4, height_ratios=[1, 4])
 
-    gs = gspec.GridSpec(2,4, height_ratios=[1,3])
-    ax4 = fig.add_subplot(gs[0,:])
-    ax4.text(0.0, 0.0, "On Time: " + str(np.sum(on_time_per_zd) / (60 * 60)) + " h\n" + "$\mathrm{\sigma_{LiMa}}$: "
-             + str(overall_significance) + "\n" + "ZD min: " + str(ZD_min) + " $\deg$\n"
-             + "ZD max: " + str(ZD_max) + " $\deg$")
-    ax4.axis("off")
+    ax5 = fig.add_subplot(gs[1, 0])
+    im = ax5.imshow(a_eff, extent=[np.log10(200), np.log10(50000), 0, 60], aspect=0.1, origin='lower')
+    plt.ylabel('Zenith Distance [deg]')
+    plt.xlabel('log10(E [GeV])')
+    plt.title('Effective Area')
+    plt.colorbar(im, ax=ax5)
 
-    ax5 = fig.add_subplot(gs[1,0])
-    ax5.imshow(a_eff)
+    fig.add_subplot(gs[1, 1])
+    plt.imshow(exc_histo, extent=[np.log10(200), np.log10(50000), 0, 60], aspect=0.1, origin='lower')
+    plt.title('Excess Events')
+    plt.colorbar()
 
-    ax6 = fig.add_subplot(gs[1,1])
-    ax6.imshow(exc_histo)
+    fig.add_subplot(gs[1, 2])
+    plt.imshow(on_histo, extent=[np.log10(200), np.log10(50000), 0, 60], aspect=0.1, origin='lower')
+    plt.title('On Events')
+    plt.colorbar()
 
-    ax7 = fig.add_subplot(gs[1,2])
-    ax7.imshow(on_histo)
+    fig.add_subplot(gs[1, 3])
+    plt.imshow(off_histo*0.2, extent=[np.log10(200), np.log10(50000), 0, 60], aspect=0.1, origin='lower')
+    plt.title('Off Events')
+    plt.colorbar()
 
-    ax8 = fig.add_subplot(gs[1,3])
-    ax8.imshow(off_histo)
+    fig.add_subplot(gs[0, :])
+    plt.text(0.0, 0.0, "On Time: {0:8.2f} h\n".format(np.sum(on_time_per_zd) / (60 * 60))
+             + "$\mathrm{\sigma_{LiMa}}$: " + "{0:3.2f}\n".format(overall_significance))
+    plt.axis("off")
+
 
     plt.show()

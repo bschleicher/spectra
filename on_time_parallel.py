@@ -41,9 +41,30 @@ def calc_on_time_chunks(zdbins, zdlabels, filelist):
 
 
 def calc_on_time(ganymed_input_list, zdbins, zdlabels, n_chunks=8):
-
+    """Calculate the observation on-time per zenith distance bin in parallel.
+    
+    Divide the input list of star files to n_chunks and start the on-time calculation per zenith distance bin
+    with a multiprocessing.Pool of workers.
+    On-Time information is read from the "Rates" tree of the Star files. Pointing information is read from
+    the "Drives" tree.
+    It matches the time of the entry in rates to the closest time of the entry in the drive information and
+    sums the elapsed on time per zenith distance bin.
+    
+      There might be a small error in the zenith distance assignment, because the drive information is 
+      more frequent than the rates. Each entry of fElapsedOnTime contains the sum of on time since the last
+      entry. During that time, a change in zenith distance might have occured.
+    
+    :param ganymed_input_list: array of strings containing the star_files
+    :param zdbins: ndarray
+    :param zdlabels: ndarray
+    :param n_chunks: int, number of chunks to divide the ganymed_input_list into
+    :return: ndarray, on-time of the observation per zenith distance bin
+    """
     ganymed_input_list = [entry.strip().replace(" ", "/") for entry in ganymed_input_list if not entry.startswith('#')]
     parts = (len(ganymed_input_list) / n_chunks * np.arange(n_chunks + 1)).astype("int_")
+
+    print("\nOn time calculation ---------")
+    print("Calculate the on time in", n_chunks, "chunks with", len(ganymed_input_list), "entries each.")
 
     on_time_parts = np.empty([n_chunks, len(zdbins) - 1])
 
@@ -55,4 +76,5 @@ def calc_on_time(ganymed_input_list, zdbins, zdlabels, n_chunks=8):
     for r in range(n_chunks):
         on_time_parts[r] = result[r].get()
 
+    print("--------- Finished on time calculation.")
     return np.sum(on_time_parts, axis=0)
