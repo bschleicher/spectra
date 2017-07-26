@@ -35,16 +35,21 @@ if __name__ == '__main__':
 
     thetasq = 0.026
     zdbins = np.linspace(0, 60, 15)
-    ebins = np.logspace(np.log10(200.0), np.log10(50000.0), 11)
+    ebins = np.logspace(np.log10(200.0), np.log10(50000.0), 10)
     use_mc = False
-    star_list = list(open("/media/michi/523E69793E69574F/daten/hzd_mrk501.txt", "r"))
+    star_files = ["/media/michi/523E69793E69574F/daten/hzd_mrk501.txt"]
     # On ISDC, put None, to read automatically processed Ganymed Output from star files:
-    ganymed_result = None
+    ganymed_result = "/media/michi/523E69793E69574F/daten/hzd_mrk501-analysis.root"
     base_path = "/media/michi/523E69793E69574F/daten/"
 
     # Create the labels for binning in energy and zenith distance.
     zdlabels = range(len(zdbins) - 1)
     elabels = range(len(ebins) - 1)
+
+    # Iterate over a list of input STAR files:
+    star_list = []
+    for entry in star_files:
+        star_list += list(open(entry, "r"))
 
     # Calcualtion of on time from ganymed input list of star files:
 
@@ -127,15 +132,15 @@ if __name__ == '__main__':
         [2.574657e-10, 3.90262e-11, 4.364535e-12, 1.083812e-12, 3.51288e-13, 1.207386e-13, 4.346247e-14, 1.683129e-14,
          6.689311e-15])
 
-    flux_de = (flux / (bin_width / 1000))
-    flux_de_err = ((flux_err / (bin_width / 1000)) / (flux_de * np.log(10)))
+    flux_de = np.divide(flux, np.divide(bin_width, 1000))
+    flux_de_err = np.divide(flux_err,np.divide(bin_width, 1000)) # / (flux_de * np.log(10))
     flux_de_err_log10 = symmetric_log10_errors(flux_de, flux_de_err)
 
     plt.figure("Spectrum")
     ax1 = plt.subplot(121)
 
-    plt.errorbar(x=bin_centers, y=flux_de, yerr=flux_de_err_log10, xerr=[bin_centers-ebins[:-1], ebins[1:]-bin_centers],
-                 fmt=".", label="FACT")
+    plt.errorbar(x=bin_centers, y=flux_de, yerr=flux_de_err_log10, xerr=[bin_centers-ebins[:-1], ebins[1:]-bin_centers]
+                 , fmt=".", label="FACT")
     plt.errorbar(x=hess_x * 1000, y=hess_y, yerr=[hess_yl, hess_yh], fmt=".", label="HESS 24.06.2014")
     # plt.errorbar(x=crab_do_x, y=crab_do_y, yerr=crab_do_y_err, xerr=[crab_do_x-crab_do_x_l,crab_do_x_h-crab_do_x],
     #  fmt="o", label="Crab Dortmund")
@@ -172,24 +177,24 @@ if __name__ == '__main__':
     gs = gspec.GridSpec(2, 4, height_ratios=[1, 4])
 
     ax5 = fig.add_subplot(gs[1, 0])
-    im = ax5.imshow(a_eff, extent=[np.log10(200), np.log10(50000), 0, 60], aspect=0.1, origin='lower')
+    im = ax5.imshow(a_eff, extent=[np.log10(200), np.log10(50000), 0, 60], aspect=0.1, origin='lower', interpolation=None)
     plt.ylabel('Zenith Distance [deg]')
     plt.xlabel('log10(E [GeV])')
     plt.title('Effective Area')
     plt.colorbar(im, ax=ax5)
 
     fig.add_subplot(gs[1, 1])
-    plt.imshow(exc_histo, extent=[np.log10(200), np.log10(50000), 0, 60], aspect=0.1, origin='lower')
+    plt.imshow(exc_histo, extent=[np.log10(200), np.log10(50000), 0, 60], aspect=0.1, origin='lower', interpolation=None)
     plt.title('Excess Events')
     plt.colorbar()
 
     fig.add_subplot(gs[1, 2])
-    plt.imshow(on_histo, extent=[np.log10(200), np.log10(50000), 0, 60], aspect=0.1, origin='lower')
+    plt.imshow(on_histo, extent=[np.log10(200), np.log10(50000), 0, 60], aspect=0.1, origin='lower', interpolation=None)
     plt.title('On Events')
     plt.colorbar()
 
     fig.add_subplot(gs[1, 3])
-    plt.imshow(off_histo*0.2, extent=[np.log10(200), np.log10(50000), 0, 60], aspect=0.1, origin='lower')
+    plt.imshow(off_histo*0.2, extent=[np.log10(200), np.log10(50000), 0, 60], aspect=0.1, origin='lower', interpolation=None)
     plt.title('Off Events')
     plt.colorbar()
 

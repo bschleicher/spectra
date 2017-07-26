@@ -64,7 +64,7 @@ def calc_on_time(ganymed_input_list, zdbins, zdlabels, n_chunks=8):
     parts = (len(ganymed_input_list) / n_chunks * np.arange(n_chunks + 1)).astype("int_")
 
     print("\nOn time calculation ---------")
-    print("Calculate the on time in", n_chunks, "chunks with", len(ganymed_input_list), "entries each.")
+    print("Calculate the on time in", n_chunks, "chunks with a total of", len(ganymed_input_list), "entries.")
 
     on_time_parts = np.empty([n_chunks, len(zdbins) - 1])
 

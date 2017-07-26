@@ -71,10 +71,22 @@ def calc_a_eff_parallel(ebins, zdbins, use_mc=True, theta_square_cut="0.085", pa
         len(zdbins) - 1) + "emc_" + str(use_mc) + "theta_sq" + theta_square_cut
 
     if os.path.isfile(name + ".npy"):
-        print("    Numpy file of effective area exists. Trying to read it.")
+        print("    Numpy file of effective area exists. Loading it.")
         a_eff = np.load(name + ".npy")
+        print(np.mean(a_eff))
+        print(np.median(a_eff))
         if not (a_eff.shape == (len(zdbins) - 1, len(ebins) - 1)):
-            print("    Shape of effective area is wrong, please delete the old file and run again:", name)
+            print("    Shape of effective area is wrong, removing", name, "...")
+            os.remove(name + ".npy")
+            print("    Please run script again.")
+        elif (np.isinf(np.mean(a_eff))):
+            print("    Median of effective area is Inf, removing",name, "...")
+            os.remove(name + ".npy")
+            print("    Please run script again.")
+        elif (np.isnan(np.median(a_eff))):
+            print("    Median of effective area is NaN, removing",name, "...")
+            os.remove(name + ".npy")
+            print("    Please run script again.")
     else:
         print("    Loading surviving gammas.")
         Events = ROOT.TChain("Events")
@@ -102,6 +114,23 @@ def calc_a_eff_parallel(ebins, zdbins, use_mc=True, theta_square_cut="0.085", pa
         if os.path.isfile(mc_name + ".npy"):
             print("    Loading existing histogram of simulated Gammas in correct binning:", mc_name+".npy")
             n_mc = np.load(mc_name + ".npy")
+            if not (n_mc.shape == (len(zdbins) - 1, len(ebins) - 1)):
+                print("    Shape of existing histogram is wrong, removing", mc_name, ".npy ...")
+                os.remove(mc_name + ".npy")
+                print("    Please run script again.")
+            elif (np.isinf(np.mean(n_mc))):
+                print("    Median of histogram is Inf, removing", mc_name, ".npy ...")
+                os.remove(mc_name + ".npy")
+                print("    Please run script again.")
+            elif (np.isnan(np.median(n_mc))):
+                print("    Median of histogram is NaN, removing", mc_name, ".npy ...")
+                os.remove(mc_name + ".npy")
+                print("    Please run script again.")
+            elif (np.mean(n_mc) == 0):
+                print("    Mean of histogram is 0, removing", mc_name, ".npy ...")
+                os.remove(mc_name+".npy")
+                print("    Please run script again.")
+
         else:
             print("    Calculating histogram of simulated Gammas from callisto root files.")
             n_mc_parts = np.zeros([n_chunks, len(zdbins) - 1, len(ebins) - 1])
