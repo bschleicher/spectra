@@ -32,10 +32,9 @@ if __name__ == '__main__':
     # Zenith Distance Bins, MC are available from 0 to 60 deg.
     # Energy Bins, MC are av. from 0.2 to 50 TeV
     # If False, effective area is calculated with estimated energy and not MC energy.
-
-    thetasq = 0.026
+    thetasq = 0.07
     zdbins = np.linspace(0, 60, 15)
-    ebins = np.logspace(np.log10(200.0), np.log10(50000.0), 10)
+    ebins = np.logspace(np.log10(200.0), np.log10(50000.0), 11)
     use_mc = False
     star_files = ["/media/michi/523E69793E69574F/daten/hzd_mrk501.txt"]
     # On ISDC, put None, to read automatically processed Ganymed Output from star files:
@@ -198,8 +197,13 @@ if __name__ == '__main__':
     plt.title('Off Events')
     plt.colorbar()
 
-    fig.add_subplot(gs[0, :])
-    plt.text(0.0, 0.0, "On Time: {0:8.2f} h\n".format(np.sum(on_time_per_zd) / (60 * 60))
+    fig.add_subplot(gs[0, 2:4])
+    plt.plot((zdbins[1:]+zdbins[0:-1])/2,on_time_per_zd,"o")
+    plt.xlabel('Zenith Distance [deg]')
+    plt.ylabel('On Time [s]')
+
+    fig.add_subplot(gs[0, 0:1])
+    plt.text(0.0, 0.0, "Number of runs: {0:8}".format(len(star_list)) + "\nThetaSqare Cut: {0:1.3f}".format(thetasq) + "\nOn Time: {0:8.2f} h\n".format(np.sum(on_time_per_zd) / (60 * 60))
              + "$\mathrm{\sigma_{LiMa}}$: " + "{0:3.2f}\n".format(overall_significance))
     plt.axis("off")
 
