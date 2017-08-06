@@ -34,11 +34,11 @@ if __name__ == '__main__':
     # If False, effective area is calculated with estimated energy and not MC energy.
     thetasq = 0.07
     zdbins = np.linspace(0, 60, 15)
-    ebins = np.logspace(np.log10(200.0), np.log10(50000.0), 11)
-    use_mc = False
-    star_files = ["/media/michi/523E69793E69574F/daten/hzd_mrk501.txt"]
+    ebins = np.logspace(np.log10(200.0), np.log10(50000.0), 15)
+    use_mc = True
+    star_files = ["/media/michi/523E69793E69574F/daten/hzd_421_flare_ed.txt"]
     # On ISDC, put None, to read automatically processed Ganymed Output from star files:
-    ganymed_result = "/media/michi/523E69793E69574F/daten/hzd_mrk501-analysis.root"
+    ganymed_result = "/media/michi/523E69793E69574F/daten/hzd_421_flare_ed-analysis.root"
     base_path = "/media/michi/523E69793E69574F/daten/"
 
     # Create the labels for binning in energy and zenith distance.
@@ -59,25 +59,24 @@ if __name__ == '__main__':
 
     select_leaves = ['DataType.fVal', 'MPointingPos.fZd', 'FileId.fVal', 'MTime.fMjd', 'MTime.fTime.fMilliSec',
                      'MTime.fNanoSec', 'MHillas.fSize', 'ThetaSquared.fVal', 'MNewImagePar.fLeakage2']
-    on_off_histos = np.zeros([2, len(zdlabels), len(elabels)])
 
     if not ganymed_result:
         print("\nRead data from Star files. ---------")
-        on_off_histos = read_data.histos_from_list_of_mars_files(star_list, select_leaves, zdbins,
+        histos = read_data.histos_from_list_of_mars_files(star_list, select_leaves, zdbins,
                                                                  zdlabels, ebins, elabels, thetasq)
 
     else:
         print("\nRead data from output ganymed file ---------")
         data_cut = read_mars.read_mars(ganymed_result, leaf_names=select_leaves)
-        on_off_histos = read_data.calc_onoffhisto(data_cut, zdbins, zdlabels, ebins, elabels, thetasq)
+        histos = read_data.calc_onoffhisto(data_cut, zdbins, zdlabels, ebins, elabels, thetasq)
 
     print("--------- Finished reading data.")
 
-    print(on_off_histos)
-    print(on_off_histos.shape)
+    print(histos)
+    print(histos)
 
-    on_histo = on_off_histos[0]
-    off_histo = on_off_histos[1]
+    on_histo = histos[0][0]
+    off_histo = histos[0][1]
 
     exc_histo = on_histo - (1 / 5) * off_histo
     exc_histo_err = np.sqrt(on_histo + (1 / 25) * off_histo)
@@ -203,9 +202,20 @@ if __name__ == '__main__':
     plt.ylabel('On Time [s]')
 
     fig.add_subplot(gs[0, 0:1])
-    plt.text(0.0, 0.0, "Number of runs: {0:8}".format(len(star_list)) + "\nThetaSqare Cut: {0:1.3f}".format(thetasq) + "\nOn Time: {0:8.2f} h\n".format(np.sum(on_time_per_zd) / (60 * 60))
+    plt.text(0.0, 0.0, "Number of runs: {0:8}".format(len(star_list)) + "\nThetaSqare Cut: {0:1.3f}".format(thetasq)
+             + "\nOn Time: {0:8.2f} h\n".format(np.sum(on_time_per_zd) / (60 * 60))
              + "$\mathrm{\sigma_{LiMa}}$: " + "{0:3.2f}\n".format(overall_significance))
     plt.axis("off")
 
+
+    plt.figure("ThetaSqare")
+    plt.errorbar(x=(histos[1][0][1][1:]+histos[1][0][1][0:-1])/2, y=histos[1][0][0],
+                 xerr=(histos[1][0][1][2]-histos[1][0][1][1])/2, fmt=".", label="On Data")
+    plt.errorbar(x=(histos[1][1][1][1:] + histos[1][1][1][0:-1]) / 2, y=0.2*histos[1][1][0],
+                 xerr=(histos[1][1][1][2] - histos[1][1][1][1])/2, fmt=".", label="0.2 * Off Data")
+    plt.axvline(x=thetasq, color='black', linestyle='-', label="Cut")
+    plt.legend()
+    plt.xlabel('$ \Theta^2 \, \mathrm{deg^2} $')
+    plt.ylabel('Counts')
 
     plt.show()

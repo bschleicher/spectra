@@ -43,16 +43,20 @@ def calc_onoffhisto(data, zdbins, zdlabels, ebins, elabels, thetasq):
     data['Ebin'] = pd.cut(data["energy"], ebins, labels=elabels, include_lowest=True)
     if data["ThetaSquared.fVal"].min() < thetasq:
         try:
-            data['theta'] = pd.cut(data["ThetaSquared.fVal"], [0, thetasq, 10], labels=["on", "notsource"],
+            data['theta'] = pd.cut(data["ThetaSquared.fVal"], [0, thetasq, 10], labels=["source", "notsource"],
                                    include_lowest=True)
 
-            theta_data = data.groupby('theta').get_group("on")
-            on_data = theta_data.groupby('DataType.fVal').get_group(1.0)
-            off_data = theta_data.groupby('DataType.fVal').get_group(0.0)
+            source_data = data.groupby('theta').get_group("source")
+            on_data = source_data.groupby("DataType.fVal").get_group(1.0)
+            off_data = source_data.groupby("DataType.fVal").get_group(0.0)
 
             on_histo = np.histogram2d(on_data["MPointingPos.fZd"], on_data["energy"], bins=[zdbins, ebins])[0]
             off_histo = np.histogram2d(off_data["MPointingPos.fZd"], off_data["energy"], bins=[zdbins, ebins])[0]
+            on_thetasq = np.histogram(data.groupby("DataType.fVal").get_group(1.0)["ThetaSquared.fVal"],
+                                      bins = 40, range=(0.0,0.3))
+            off_thetasq = np.histogram(data.groupby("DataType.fVal").get_group(0.0)["ThetaSquared.fVal"],
+                                       bins = 40, range=(0.0,0.3))
         except:
             on_histo = np.zeros([len(zdlabels), len(elabels)])
             off_histo = np.zeros([len(zdlabels), len(elabels)])
-    return np.array([on_histo, off_histo])
+    return (np.array([on_histo, off_histo]),[on_thetasq, off_thetasq])
