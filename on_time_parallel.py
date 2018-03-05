@@ -45,7 +45,7 @@ def calc_on_time(ganymed_input_list, zdbins, zdlabels, n_chunks=8):
     
     Divide the input list of star files to n_chunks and start the on-time calculation per zenith distance bin
     with a multiprocessing.Pool of workers.
-    On-Time information is read from the "Rates" tree of the Star files. Pointing information is read from
+    On-Time information is read from the "Rates" tree of the Star output root files. Pointing information is read from
     the "Drives" tree.
     It matches the time of the entry in rates to the closest time of the entry in the drive information and
     sums the elapsed on time per zenith distance bin.

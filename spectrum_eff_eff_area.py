@@ -10,8 +10,8 @@ import numpy as np
 from fact.analysis.statistics import li_ma_significance
 import multiprocessing as mp
 import read_mars
-import matplotlib.colors as colors
-
+import matplotlib.colors as colorc
+from scipy.optimize import curve_fit
 
 def symmetric_log10_errors(value, error):
     """ Calculate upper and lower error, that appear symmetric in loglog-plots.
@@ -32,13 +32,14 @@ if __name__ == '__main__':
     # Zenith Distance Bins, MC are available from 0 to 60 deg.
     # Energy Bins, MC are av. from 0.2 to 50 TeV
     # If False, effective area is calculated with estimated energy and not MC energy.
-    thetasq = 0.07
+    thetasq = 0.04
     zdbins = np.linspace(0, 60, 15)
-    ebins = np.logspace(np.log10(200.0), np.log10(50000.0), 15)
+    ebins = np.logspace(np.log10(200.0), np.log10(50000.0), 12)
     use_mc = True
-    star_files = ["/media/michi/523E69793E69574F/daten/hzd_421_flare_ed.txt"]
+    star_files = ["/media/michi/523E69793E69574F/daten/421_flare_ed.txt"]
     # On ISDC, put None, to read automatically processed Ganymed Output from star files:
-    ganymed_result = "/media/michi/523E69793E69574F/daten/hzd_421_flare_ed-analysis.root"
+    ganymed_result = "/media/michi/523E69793E69574F/daten/421_flare_ed-analysis.root"
+
     base_path = "/media/michi/523E69793E69574F/daten/"
 
     # Create the labels for binning in energy and zenith distance.
@@ -130,18 +131,41 @@ if __name__ == '__main__':
         [2.574657e-10, 3.90262e-11, 4.364535e-12, 1.083812e-12, 3.51288e-13, 1.207386e-13, 4.346247e-14, 1.683129e-14,
          6.689311e-15])
 
+    flare_dc = pd.read_csv("/home/michi/Downloads/flare_dc_spectrum.csv")
+
+
+
     flux_de = np.divide(flux, np.divide(bin_width, 1000))
     flux_de_err = np.divide(flux_err,np.divide(bin_width, 1000)) # / (flux_de * np.log(10))
     flux_de_err_log10 = symmetric_log10_errors(flux_de, flux_de_err)
+
+    def powerlaw(x, gamma, scale):
+        return scale*np.power(x/1000,gamma)
+
+    selection=(bin_centers > 300) & (bin_centers < 8000)
+    popt, pcov = curve_fit(powerlaw, bin_centers[selection], flux_de[selection], p0=[-2.7, 10e-11])
+
+    print(popt)
+    print(np.sqrt(np.diag(pcov)))
 
     plt.figure("Spectrum")
     ax1 = plt.subplot(121)
 
     plt.errorbar(x=bin_centers, y=flux_de, yerr=flux_de_err_log10, xerr=[bin_centers-ebins[:-1], ebins[1:]-bin_centers]
-                 , fmt=".", label="FACT")
-    plt.errorbar(x=hess_x * 1000, y=hess_y, yerr=[hess_yl, hess_yh], fmt=".", label="HESS 24.06.2014")
+                 , fmt=".", label="F")
+
+    plt.errorbar(x=np.power(10,flare_dc.x), y=flare_dc.y, xerr=[np.power(10, flare_dc.x)-np.power(10,flare_dc.x-0.1),
+                                                                np.power(10, flare_dc.x+0.1)-np.power(10, flare_dc.x)],
+                 yerr=[flare_dc.yerr_low, flare_dc.yerr_high], fmt=".", label="Jens")
+    #plt.errorbar(x=hess_x * 1000, y=hess_y, yerr=[hess_yl, hess_yh], fmt=".", label="HESS 24.06.2014")
     # plt.errorbar(x=crab_do_x, y=crab_do_y, yerr=crab_do_y_err, xerr=[crab_do_x-crab_do_x_l,crab_do_x_h-crab_do_x],
     #  fmt="o", label="Crab Dortmund")
+
+
+    savedf = np.vstack((bin_centers, bin_centers-ebins[:-1], ebins[1:]-bin_centers, flux_de, flux_de_err_log10[0], flux_de_err_log10[1]))
+    np.savetxt("/home/michi/test/flare.txt", savedf.T, fmt="%.4e", header="Bin_center Bin_low Bin_high Flux Error_low Error_high")
+
+
     plt.xscale("log")
     plt.yscale("log")
     plt.grid(True)
