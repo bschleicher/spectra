@@ -29,7 +29,13 @@ def calc_num_mc_entries(ebins, zdbins, n_chunks, chunk, path):
     return n_mc_part
 
 
-def calc_a_eff_parallel(ebins, zdbins, use_mc=True, theta_square_cut="0.085", path="/home/guest/mblank/", n_chunks=8):
+def calc_a_eff_parallel(ebins,
+                        zdbins,
+                        correction_factors=False,
+                        theta_square_cut=0.085,
+                        path="/home/guest/mblank/",
+                        n_chunks=8):
+
     """ Reads or calculates the effective area.
     
     Returns the effective area(energy, zenith distance) in cm² with binning specified in the one dimensional
@@ -47,9 +53,9 @@ def calc_a_eff_parallel(ebins, zdbins, use_mc=True, theta_square_cut="0.085", pa
     
     A theta square cut (theta is the angular distance of events to the source position) is applied.    
     
-    use_mc = True is the standard option. It means, that the histogram of surviving events is filled using the
-    true MC energy. If use_mc = False is used, the histogram of surviving events is filled with the estimated
-    energy of the events according to the energy estimation formula, implementing the method of
+    correction_factors = False is the standard option. It means, that the histogram of surviving events is filled 
+    using the true MC energy. If correction factors = False is used, the histogram of surviving events is filled 
+    with the estimated energy of the events according to the energy estimation formula, implementing the method of
     correction factors in a simple way.
     
     The n_chunks parameter specifies, into how many chunks the list of the ceres-files for the calculation of
@@ -58,17 +64,18 @@ def calc_a_eff_parallel(ebins, zdbins, use_mc=True, theta_square_cut="0.085", pa
     
     :param ebins: ndarray, Array of energy bin edges. 
     :param zdbins: ndarray, Array of zenith distance bin edges.
-    :param use_mc: bool, True or False.(Standard = True. If False, correction factor method is used.)
+    :param correction_factors: bool, True or False.(Standard = True. If False, correction factor method is used.)
     :param theta_square_cut: str, Maximum squared angular distance from source. (Standard = 0.085) 
     :param path: str, Base path of the folder, where the arrays are saved to and loaded from.
     :param n_chunks: int, Number of chunks, into which the read-in of simulated events is divided to. (Standard = 8)
     :return: ndarray, histogram of 2D effective area(energy, zenith distance)
     """
 
+    theta_square_cut = str(theta_square_cut)
     print("\n Calculate the effective area. ---------")
 
     name = path + "a_eff/" + "ebins" + str(len(ebins) - 1) + "_zdbins" + str(
-        len(zdbins) - 1) + "emc_" + str(use_mc) + "theta_sq" + theta_square_cut
+        len(zdbins) - 1) + "emc_" + str(correction_factors) + "theta_sq" + theta_square_cut
 
     if os.path.isfile(name + ".npy"):
         print("    Numpy file of effective area exists. Loading it.")
@@ -99,7 +106,7 @@ def calc_a_eff_parallel(ebins, zdbins, use_mc=True, theta_square_cut="0.085", pa
         Events.SetAlias("E", "(pow(29.65*MHillas.fSize,(0.77/cos((MPointingPos.fZd * 1.35 * TMath::Pi())/360))))")
 
         cut = "(DataType.fVal>0.5)&&(ThetaSquared.fVal<" + theta_square_cut + ")"
-        if use_mc:
+        if not correction_factors:
             Events.Draw("Zd:Mc>>surviving", cut, "goff")
         else:
             Events.Draw("Zd:E>>surviving", cut, "goff")

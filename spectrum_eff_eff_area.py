@@ -86,7 +86,7 @@ if __name__ == '__main__':
 
     # Calculate the effective area:
 
-    a_eff = calc_a_eff_parallel.calc_a_eff_parallel(ebins, zdbins, use_mc=use_mc, theta_square_cut=str(thetasq),
+    a_eff = calc_a_eff_parallel.calc_a_eff_parallel(ebins, zdbins, correction_factors=use_mc, theta_square_cut=str(thetasq),
                                                     path=base_path)
 
     print(on_time_per_zd)
