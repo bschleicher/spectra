@@ -2,6 +2,8 @@ import ROOT
 import numpy as np
 import multiprocessing as mp
 import os
+import pandas as pd
+from tqdm import tqdm
 
 
 def calc_num_mc_entries(ebins, zdbins, n_chunks, chunk, path):
@@ -27,6 +29,66 @@ def calc_num_mc_entries(ebins, zdbins, n_chunks, chunk, path):
             n_mc_part[j, i] = simulated.GetBinContent(i + 1, j + 1)  # +1, da in ROOT bin 0 der underflow bin ist.
 
     return n_mc_part
+
+def make_hist(df, bins, weights):
+    return np.histogram2d((df["MMcEvtBasic.fTelescopeTheta"].values*360)/(2*np.pi),
+                df["MMcEvtBasic.fEnergy"].values,
+                bins=bins,
+                weights = weights)[0]
+
+def calc_num_mc_entries_hd5(ebins, zdbins, path):
+    parts=[]
+    for i in tqdm(range(8)):
+        df = pd.read_hdf(path+str(i)+ ".h5", "table")
+        selection = ((df["MMcEvtBasic.fTelescopeTheta"].values * 360) / (2 * np.pi) < 30)
+        part1 = df[selection]
+        part2 = df[np.bitwise_not(selection)]
+        histo = make_hist(part1, [zdbins, ebins], np.ones(len(part1))*4)
+        histo += make_hist(part2, [zdbins, ebins], np.ones(len(part2)))
+        parts.append(histo)
+    return np.sum(np.array(parts), axis=0)
+
+
+def calc_a_eff_parallel_hd5(ebins,
+                            zdbins,
+                            correction_factors=True,
+                            theta_square_cut=0.085,
+                            path="/home/guest/mblank/",
+                            cerespath="/home/michi/read_mars/ceres_part"):
+
+    theta_square_cut = str(theta_square_cut)
+    print("\n Calculating the effective area. ---------")
+
+    print("    Loading surviving gammas.")
+    Events = ROOT.TChain("Events")
+    Events.Add(path + "gamma/hzd_gammasall-analysis.root")
+
+    surviving = ROOT.TH2D("surviving", "Events Surviving Cuts", len(ebins) - 1, ebins, len(zdbins) - 1, zdbins)
+
+    Events.SetAlias("Zd", "MPointingPos.fZd")
+    Events.SetAlias("Mc", "MMcEvt.MMcEvtBasic.fEnergy")
+    Events.SetAlias("E", "(pow(29.65*MHillas.fSize,(0.77/cos((MPointingPos.fZd * 1.35 * TMath::Pi())/360))))")
+
+    cut = "(DataType.fVal>0.5)&&(ThetaSquared.fVal<" + theta_square_cut + ")"
+    if not correction_factors:
+        Events.Draw("Zd:Mc>>surviving", cut, "goff")
+    else:
+        Events.Draw("Zd:E>>surviving", cut, "goff")
+
+    n_surviving = np.zeros((len(zdbins) - 1, len(ebins) - 1))
+    for i in range(len(ebins) - 1):
+        for j in range(len(zdbins) - 1):
+            n_surviving[j, i] = surviving.GetBinContent(i + 1, j + 1)  # +1, da in ROOT bin 0 der underflow bin ist.
+
+
+    n_mc = calc_num_mc_entries_hd5(ebins, zdbins, cerespath)
+
+
+    a_eff = np.divide(n_surviving, n_mc) * (np.pi * (54000.0 * 54000.0))
+
+    print("--------- Returning the effective area.")
+
+    return a_eff
 
 
 def calc_a_eff_parallel(ebins,

@@ -32,13 +32,16 @@ if __name__ == '__main__':
     # Zenith Distance Bins, MC are available from 0 to 60 deg.
     # Energy Bins, MC are av. from 0.2 to 50 TeV
     # If False, effective area is calculated with estimated energy and not MC energy.
-    thetasq = 0.04
+    thetasq = 0.023
     zdbins = np.linspace(0, 60, 15)
-    ebins = np.logspace(np.log10(200.0), np.log10(50000.0), 12)
-    use_mc = True
-    star_files = ["/media/michi/523E69793E69574F/daten/421_flare_ed.txt"]
+    #ebins = np.logspace(np.log10(200.0), np.log10(50000.0), 12)
+    ebins = np.array([251.18864315, 398.10717055, 630.95734448, 1000., 1584.89319246, 2511.88643151,
+                      3981.07170553, 6309.5734448, 10000. , 15848.93192461])
+    #ebins = np.array([200.0, 475.0, 726.0, 1236.0, 2084.0, 3642.0, 50000])
+    corr_factors = False
+    star_files = ["/media/michi/523E69793E69574F/daten/crab2.txt"]
     # On ISDC, put None, to read automatically processed Ganymed Output from star files:
-    ganymed_result = "/media/michi/523E69793E69574F/daten/421_flare_ed-analysis.root"
+    ganymed_result = "/media/michi/523E69793E69574F/daten/crab2-analysis.root"
 
     base_path = "/media/michi/523E69793E69574F/daten/"
 
@@ -86,8 +89,8 @@ if __name__ == '__main__':
 
     # Calculate the effective area:
 
-    a_eff = calc_a_eff_parallel.calc_a_eff_parallel(ebins, zdbins, correction_factors=use_mc, theta_square_cut=str(thetasq),
-                                                    path=base_path)
+    a_eff = calc_a_eff_parallel.calc_a_eff_parallel_hd5(ebins, zdbins, correction_factors=corr_factors, theta_square_cut=str(thetasq),
+                                                        path=base_path)
 
     print(on_time_per_zd)
     print("On-Time:", np.sum(on_time_per_zd), "s")
@@ -142,11 +145,14 @@ if __name__ == '__main__':
     def powerlaw(x, gamma, scale):
         return scale*np.power(x/1000,gamma)
 
-    selection=(bin_centers > 300) & (bin_centers < 8000)
-    popt, pcov = curve_fit(powerlaw, bin_centers[selection], flux_de[selection], p0=[-2.7, 10e-11])
+    try:
+        selection=(bin_centers > 300) & (bin_centers < 8000)
+        popt, pcov = curve_fit(powerlaw, bin_centers[selection], flux_de[selection], p0=[-2.7, 10e-11])
 
-    print(popt)
-    print(np.sqrt(np.diag(pcov)))
+        print(popt)
+        print(np.sqrt(np.diag(pcov)))
+    except:
+        pass
 
     plt.figure("Spectrum")
     ax1 = plt.subplot(121)
@@ -154,12 +160,12 @@ if __name__ == '__main__':
     plt.errorbar(x=bin_centers, y=flux_de, yerr=flux_de_err_log10, xerr=[bin_centers-ebins[:-1], ebins[1:]-bin_centers]
                  , fmt=".", label="F")
 
-    plt.errorbar(x=np.power(10,flare_dc.x), y=flare_dc.y, xerr=[np.power(10, flare_dc.x)-np.power(10,flare_dc.x-0.1),
-                                                                np.power(10, flare_dc.x+0.1)-np.power(10, flare_dc.x)],
-                 yerr=[flare_dc.yerr_low, flare_dc.yerr_high], fmt=".", label="Jens")
+    #plt.errorbar(x=np.power(10,flare_dc.x), y=flare_dc.y, xerr=[np.power(10, flare_dc.x)-np.power(10,flare_dc.x-0.1),
+    #                                                            np.power(10, flare_dc.x+0.1)-np.power(10, flare_dc.x)],
+    #             yerr=[flare_dc.yerr_low, flare_dc.yerr_high], fmt=".", label="Jens")
     #plt.errorbar(x=hess_x * 1000, y=hess_y, yerr=[hess_yl, hess_yh], fmt=".", label="HESS 24.06.2014")
-    # plt.errorbar(x=crab_do_x, y=crab_do_y, yerr=crab_do_y_err, xerr=[crab_do_x-crab_do_x_l,crab_do_x_h-crab_do_x],
-    #  fmt="o", label="Crab Dortmund")
+    plt.errorbar(x=crab_do_x, y=crab_do_y, yerr=crab_do_y_err, xerr=[crab_do_x-crab_do_x_l,crab_do_x_h-crab_do_x],
+      fmt="o", label="Crab Dortmund")
 
 
     savedf = np.vstack((bin_centers, bin_centers-ebins[:-1], ebins[1:]-bin_centers, flux_de, flux_de_err_log10[0], flux_de_err_log10[1]))
