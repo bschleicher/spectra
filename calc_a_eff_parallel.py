@@ -38,8 +38,8 @@ def make_hist(df, bins, weights):
 
 def calc_num_mc_entries_hd5(ebins, zdbins, path):
     parts=[]
-    for i in tqdm(range(8)):
-        df = pd.read_hdf(path+str(i)+ ".h5", "table")
+    for entry in tqdm(path):
+        df = pd.read_hdf(entry, "table")
         selection = ((df["MMcEvtBasic.fTelescopeTheta"].values * 360) / (2 * np.pi) < 30)
         part1 = df[selection]
         part2 = df[np.bitwise_not(selection)]
@@ -54,14 +54,14 @@ def calc_a_eff_parallel_hd5(ebins,
                             correction_factors=True,
                             theta_square_cut=0.085,
                             path="/home/guest/mblank/",
-                            cerespath="/home/michi/read_mars/ceres_part"):
+                            list_of_hdf_ceres_files="/home/michi/read_mars/ceres_part"):
 
     theta_square_cut = str(theta_square_cut)
     print("\n Calculating the effective area. ---------")
 
     print("    Loading surviving gammas.")
     Events = ROOT.TChain("Events")
-    Events.Add(path + "gamma/hzd_gammasall-analysis.root")
+    Events.Add(path)
 
     surviving = ROOT.TH2D("surviving", "Events Surviving Cuts", len(ebins) - 1, ebins, len(zdbins) - 1, zdbins)
 
@@ -81,7 +81,7 @@ def calc_a_eff_parallel_hd5(ebins,
             n_surviving[j, i] = surviving.GetBinContent(i + 1, j + 1)  # +1, da in ROOT bin 0 der underflow bin ist.
 
 
-    n_mc = calc_num_mc_entries_hd5(ebins, zdbins, cerespath)
+    n_mc = calc_num_mc_entries_hd5(ebins, zdbins, list_of_hdf_ceres_files)
 
 
     a_eff = np.divide(n_surviving, n_mc) * (np.pi * (54000.0 * 54000.0))

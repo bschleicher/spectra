@@ -89,8 +89,16 @@ if __name__ == '__main__':
 
     # Calculate the effective area:
 
-    a_eff = calc_a_eff_parallel.calc_a_eff_parallel_hd5(ebins, zdbins, correction_factors=corr_factors, theta_square_cut=str(thetasq),
-                                                        path=base_path)
+    ceres_list= []
+
+    for i in range(8):
+        ceres_list.append("/home/michi/read_mars/ceres_part" + str(i) + ".h5")
+
+    a_eff = calc_a_eff_parallel.calc_a_eff_parallel_hd5(ebins, zdbins,
+                                                        correction_factors=corr_factors,
+                                                        theta_square_cut=str(thetasq),
+                                                        path=base_path + "gamma/hzd_gammasall-analysis.root",
+                                                        list_of_hdf_ceres_files=ceres_list)
 
     print(on_time_per_zd)
     print("On-Time:", np.sum(on_time_per_zd), "s")
