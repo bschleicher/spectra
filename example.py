@@ -32,4 +32,15 @@ spectrum.calc_differential_spectrum()
 
 spectrum.plot_flux()
 spectrum.plot_thetasq()
+path = "/media/michi/523E69793E69574F/xy.json"
+spectrum.save(path)
+
+plt.show()
+
+second = Spectrum()
+second.load(path)
+
+second.plot_flux()
+second.plot_thetasq()
+
 plt.show()

@@ -39,12 +39,13 @@ class Spectrum:
                          "n_excess_events",             # Total number (sum) of Excess-Events
                          "n_excess_events_err",         # Estimated error of total number of Excess_events
                          "overall_significance",        # Overall Significance (computed with total On- and Off-events)
+                         "theta_square_binning",        # 1D-Histogram of binning in theta_square
                          "on_theta_square_histo",       # 1D-Histogram in Theta Square of On-Events
                          "off_theta_square_histo",      # 1D-Histogram in Theta Square of Off-Events
                          "effective_area",              # 2D-Histogram Energy:ZenithDistance of Effective Area
                          "scaled_effective_area",       # effective_area scaled by On-Time per zenith bin
                          "differential_spectrum",       # 1D-Histogram, in energy of spectral points dN/dE
-                         "differential_spectrum_err"    # 1D-Histogram, estimated error of spectral points
+                         "differential_spectrum_err",    # 1D-Histogram, estimated error of spectral points
                          # Dict containing overall stats: number of on, off and excess events, 
                          # total on-time in hours, significance:
                          "stats"]
@@ -83,14 +84,14 @@ class Spectrum:
             self.zenith_binning = np.linspace(0, 60, 15)
 
         if elabels:
-            self.energy_labels = elabels
+            self.energy_labels = np.array(elabels)
         else:
-            self.energy_labels = range(len(self.energy_binning) - 1)
+            self.energy_labels = np.arange(len(self.energy_binning) - 1)
 
         if zdlabels:
-            self.zenith_labels = zdlabels
+            self.zenith_labels = np.array(zdlabels)
         else:
-            self.zenith_labels = range(len(self.zenith_binning) - 1)
+            self.zenith_labels = np.arange(len(self.zenith_binning) - 1)
         if ganymed_file_data:
             self.ganymed_file_data = ganymed_file_data
 
@@ -114,6 +115,7 @@ class Spectrum:
         self.n_excess_events_err = None
         self.overall_significance = None
 
+        self.theta_square_binning = None
         self.on_theta_square_histo = None
         self.off_theta_square_histo = None
 
@@ -228,9 +230,9 @@ class Spectrum:
         self.overall_significance = li_ma_significance(self.n_on_events, self.n_off_events, self.alpha)
 
         # Save Theta-Sqare histograms
-
-        self.on_theta_square_histo = histos[1][0]
-        self.off_theta_square_histo = histos[1][1]
+        self.theta_square_binning = histos[1][0][1]
+        self.on_theta_square_histo = histos[1][0][0]
+        self.off_theta_square_histo = histos[1][1][0]
 
     def calc_effective_area(self, analysed_ceres_ganymed=None, ceres_list=None):
         if not ceres_list:
@@ -260,20 +262,20 @@ class Spectrum:
         bin_centers = np.power(10, (np.log10(self.energy_binning[1:]) + np.log10(self.energy_binning[:-1])) / 2)
         bin_width = self.energy_binning[1:] - self.energy_binning[:-1]
 
-        bin_error = [bin_centers - self.energy_binning[:-1], self.energy_binning[1:] - bin_centers]
+        bin_error = np.array([bin_centers - self.energy_binning[:-1], self.energy_binning[1:] - bin_centers])
 
         self.scaled_effective_area = (self.effective_area * self.on_time_per_zd[:, np.newaxis]) / self.total_on_time
         flux = np.divide(self.excess_histo, np.sum(self.scaled_effective_area, axis=0))
         flux = np.divide(flux, self.total_on_time)
-        flux_err = np.ma.divide(np.sqrt(self.on_histo + (1 / 25) * self.off_histo),
-                                np.sum(self.scaled_effective_area, axis=0)) / self.total_on_time
+        flux_err = np.divide(np.sqrt(self.on_histo + (1 / 25) * self.off_histo),
+                             np.sum(self.scaled_effective_area, axis=0)) / self.total_on_time
 
         flux_de = np.divide(flux, np.divide(bin_width, 1000))
         flux_de_err = np.divide(flux_err, np.divide(bin_width, 1000))  # / (flux_de * np.log(10))
         flux_de_err_log10 = symmetric_log10_errors(flux_de, flux_de_err)
 
         self.differential_spectrum = flux_de
-        self.differential_spectrum_err = flux_de_err_log10
+        self.differential_spectrum_err = np.array(flux_de_err_log10)
 
         self.energy_center = bin_centers
         self.energy_error = bin_error
@@ -306,7 +308,11 @@ class Spectrum:
 
     def plot_thetasq(self):
         self.fill_stats()
-        return plot_theta(self.on_theta_square_histo, self.off_theta_square_histo, self.theta_square, self.stats)
+        return plot_theta(self.theta_square_binning,
+                          self.on_theta_square_histo,
+                          self.off_theta_square_histo, 
+                          self.theta_square,
+                          self.stats)
 
     ##############################################################
     # Define functions to dump and load as json
@@ -318,10 +324,14 @@ class Spectrum:
             data[variable_name] = getattr(self, variable_name)
 
         for entry in data:
-            if isinstance(data[entry], np.ndarray):
+            print(entry, type(data[entry]))
+            if isinstance(data[entry], (np.ndarray, np.ma.core.MaskedArray)):
                 aslist = data[entry].tolist()
                 data[entry] = aslist
-
+            elif isinstance(data[entry], dict):
+                for element in data[entry]:
+                    aslist = data[entry][element].tolist()
+                    data[entry][element] = aslist
         with open(filename, 'w') as outfile:
             json.dump(data, outfile)
 
@@ -329,7 +339,11 @@ class Spectrum:
         with open(filename) as infile:
             data = json.load(infile)
         for variable_name in data:
+            containing = data[variable_name]
             if variable_name in self.list_of_variables:
-                setattr(self, variable_name, np.array(data[variable_name]))
+                if isinstance(containing, list):
+                    setattr(self, variable_name, np.array(containing))
+                else:
+                    setattr(self, variable_name, containing)
             else:
                 raise KeyError('Key not in list of variables')

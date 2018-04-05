@@ -70,18 +70,18 @@ def plot_spectrum(bin_centers,
     return ax_sig, ax_flux
 
 
-def plot_theta(thetasquare_on, thetasqure_off, thetasq_cut, stats=None, filename=None):
+def plot_theta(thetasquare_binning, thetasquare_on, thetasquare_off, thetasq_cut, stats=None, filename=None):
     fig = plt.figure("ThetaSqare")
     ax = plt.subplot()
-    ax.errorbar(x=(thetasquare_on[1][1:]+thetasquare_on[1][0:-1])/2,
-                y=thetasquare_on[0],
-                xerr=(thetasquare_on[1][2]-thetasquare_on[1][1])/2,
+    ax.errorbar(x=(thetasquare_binning[1:]+thetasquare_binning[0:-1])/2,
+                y=thetasquare_on,
+                xerr=(thetasquare_binning[2]-thetasquare_binning[1])/2,
                 fmt=".",
                 label="On Data")
 
-    ax.errorbar(x=(thetasqure_off[1][1:] + thetasqure_off[1][0:-1]) / 2,
-                y=0.2*thetasqure_off[0],
-                xerr=(thetasqure_off[1][2] - thetasqure_off[1][1])/2,
+    ax.errorbar(x=(thetasquare_binning[1:] + thetasquare_binning[0:-1]) / 2,
+                y=0.2*thetasquare_off,
+                xerr=(thetasquare_binning[2] - thetasquare_binning[1])/2,
                 fmt=".",
                 label="0.2 * Off Data")
 
@@ -100,8 +100,8 @@ def plot_theta(thetasquare_on, thetasqure_off, thetasq_cut, stats=None, filename
                "N_on: {0:.0f}".format(stats["n_on"]) + \
                "\nN_off: {0:.2f}".format(stats["n_off"]) + \
                "\nN_excess: {0:.2f}".format(stats["n_excess"]) + \
-               "\nOn Time: {0:8.2f} h\n".format(stats["on_time_hours"]) + \
-               "$\mathrm{\sigma_{LiMa}}$: " + "{0:3.2f}".format(stats["significance"])
+               "\nOn Time: {0:8.2f} h".format(stats["on_time_hours"]) + \
+               "\n$\mathrm{\sigma_{LiMa}}$" + ": {0:3.2f}".format(stats["significance"])
 
         # plt.text(x_text, y_text, text)
         plt.plot([], [], ' ', label=text)
