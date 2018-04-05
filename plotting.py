@@ -8,9 +8,10 @@ def plot_spectrum(bin_centers,
                   flux_err,
                   significance,
                   hess20140624=False,
-                  crab_do=False):
+                  crab_do=False,
+                  filename=None):
 
-    plt.figure()
+    fig = plt.figure()
 
     ax_sig = plt.subplot2grid((8, 1), (6, 0), rowspan=2)  # inspired from pyfact
     ax_flux = plt.subplot2grid((8, 1), (1, 0), rowspan=5, sharex=ax_sig)
@@ -63,11 +64,14 @@ def plot_spectrum(bin_centers,
     plt.setp(ax_flux.get_xticklabels(), visible=False)
     plt.legend()
 
+    if filename is not None:
+        fig.savefig(filename)
+
     return ax_sig, ax_flux
 
 
-def plot_theta(thetasquare_on, thetasqure_off, thetasq_cut, stats=None):
-    plt.figure("ThetaSqare")
+def plot_theta(thetasquare_on, thetasqure_off, thetasq_cut, stats=None, filename=None):
+    fig = plt.figure("ThetaSqare")
     ax = plt.subplot()
     ax.errorbar(x=(thetasquare_on[1][1:]+thetasquare_on[1][0:-1])/2,
                 y=thetasquare_on[0],
@@ -102,5 +106,8 @@ def plot_theta(thetasquare_on, thetasqure_off, thetasq_cut, stats=None):
         # plt.text(x_text, y_text, text)
         plt.plot([], [], ' ', label=text)
     plt.legend()
+
+    if filename is not None:
+        fig.savefig(filename)
 
     return ax
