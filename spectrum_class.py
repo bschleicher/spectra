@@ -1,4 +1,5 @@
 import numpy as np
+import json
 from read_mars import read_mars
 from fact.analysis.statistics import li_ma_significance
 
@@ -11,6 +12,42 @@ from plotting import plot_spectrum, plot_theta
 
 class Spectrum:
     """ Class containing FACT spectra and additional information"""
+    list_of_variables = ["use_correction_factors",
+                         "theta_square",
+                         "alpha",
+                         "list_of_ceres_files",
+                         "ganymed_file_mc",
+                         "run_list_star",
+                         "energy_binning",
+                         "zenith_binning",
+                         "energy_labels",
+                         "zenith_labels",
+                         "ganymed_file_data",
+                         "energy_center",
+                         "energy_error",
+                         "on_time_per_zd",              # 1D-Array of On-Time per ZenithDistance bin
+                         "total_on_time",               # Total On-Time of the observation
+                         "on_histo_zenith",             # 2D-Histogram Energy:ZenithDistance of On-Events
+                         "off_histo_zenith",            # 2D-Histogram Energy:ZenithDistance of Off-Events
+                         "on_histo",                    # 1D-Histogram in Energy of On-Events
+                         "off_histo",                   # 1D-Histogram in Energy of Off-Events
+                         "significance_histo",          # 1D-Histogram in Energy of Significance
+                         "excess_histo",                # 1D-Histogram in Energy of Excess_Events
+                         "excess_histo_err",            # 1D-Histogram in Energy of Error of Excess_Events
+                         "n_on_events",                 # Total number (sum) of On-Events
+                         "n_off_events",                # Total number (sum) of Off-Events
+                         "n_excess_events",             # Total number (sum) of Excess-Events
+                         "n_excess_events_err",         # Estimated error of total number of Excess_events
+                         "overall_significance",        # Overall Significance (computed with total On- and Off-events)
+                         "on_theta_square_histo",       # 1D-Histogram in Theta Square of On-Events
+                         "off_theta_square_histo",      # 1D-Histogram in Theta Square of Off-Events
+                         "effective_area",              # 2D-Histogram Energy:ZenithDistance of Effective Area
+                         "scaled_effective_area",       # effective_area scaled by On-Time per zenith bin
+                         "differential_spectrum",       # 1D-Histogram, in energy of spectral points dN/dE
+                         "differential_spectrum_err"    # 1D-Histogram, estimated error of spectral points
+                         # Dict containing overall stats: number of on, off and excess events, 
+                         # total on-time in hours, significance:
+                         "stats"]
 
     def __init__(self,
                  run_list_star=None,
@@ -57,6 +94,9 @@ class Spectrum:
         if ganymed_file_data:
             self.ganymed_file_data = ganymed_file_data
 
+        self.energy_center = None
+        self.energy_error = None
+
         # Declare Placeholder variables
         self.on_time_per_zd = None
         self.total_on_time = None
@@ -65,6 +105,7 @@ class Spectrum:
         self.off_histo_zenith = None
         self.on_histo = None
         self.off_histo = None
+        self.significance_histo = None
         self.excess_histo = None
         self.excess_histo_err = None
         self.n_on_events = None
@@ -239,6 +280,10 @@ class Spectrum:
 
         return flux_de, flux_de_err_log10, bin_centers, bin_error
 
+    ##########################################################
+    # Wrapper methods for plotting
+    ##########################################################
+
     def fill_stats(self):
         self.stats["n_on"] = self.n_on_events
         self.stats["n_off"] = self.alpha * self.n_off_events
@@ -263,6 +308,28 @@ class Spectrum:
         self.fill_stats()
         return plot_theta(self.on_theta_square_histo, self.off_theta_square_histo, self.theta_square, self.stats)
 
+    ##############################################################
+    # Define functions to dump and load as json
+    ##############################################################
 
+    def save(self, filename):
+        data = {}
+        for variable_name in self.list_of_variables:
+            data[variable_name] = getattr(self, variable_name)
 
+        for entry in data:
+            if isinstance(data[entry], np.ndarray):
+                aslist = data[entry].tolist()
+                data[entry] = aslist
 
+        with open(filename, 'w') as outfile:
+            json.dump(data, outfile)
+
+    def load(self, filename):
+        with open(filename) as infile:
+            data = json.load(infile)
+        for variable_name in data:
+            if variable_name in self.list_of_variables:
+                setattr(self, variable_name, np.array(data[variable_name]))
+            else:
+                raise KeyError('Key not in list of variables')
