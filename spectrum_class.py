@@ -267,15 +267,15 @@ class Spectrum:
         self.scaled_effective_area = (self.effective_area * self.on_time_per_zd[:, np.newaxis]) / self.total_on_time
         flux = np.divide(self.excess_histo, np.sum(self.scaled_effective_area, axis=0))
         flux = np.divide(flux, self.total_on_time)
-        flux_err = np.divide(np.sqrt(self.on_histo + (1 / 25) * self.off_histo),
-                             np.sum(self.scaled_effective_area, axis=0)) / self.total_on_time
+        flux_err = np.ma.divide(np.sqrt(self.on_histo + (1 / 25) * self.off_histo),
+                                np.sum(self.scaled_effective_area, axis=0)) / self.total_on_time
 
         flux_de = np.divide(flux, np.divide(bin_width, 1000))
         flux_de_err = np.divide(flux_err, np.divide(bin_width, 1000))  # / (flux_de * np.log(10))
         flux_de_err_log10 = symmetric_log10_errors(flux_de, flux_de_err)
 
         self.differential_spectrum = flux_de
-        self.differential_spectrum_err = np.array(flux_de_err_log10)
+        self.differential_spectrum_err = np.ma.array(flux_de_err_log10)
 
         self.energy_center = bin_centers
         self.energy_error = bin_error
@@ -310,7 +310,7 @@ class Spectrum:
         self.fill_stats()
         return plot_theta(self.theta_square_binning,
                           self.on_theta_square_histo,
-                          self.off_theta_square_histo, 
+                          self.off_theta_square_histo,
                           self.theta_square,
                           self.stats)
 
@@ -324,7 +324,6 @@ class Spectrum:
             data[variable_name] = getattr(self, variable_name)
 
         for entry in data:
-            print(entry, type(data[entry]))
             if isinstance(data[entry], (np.ndarray, np.ma.core.MaskedArray)):
                 aslist = data[entry].tolist()
                 data[entry] = aslist
@@ -338,12 +337,15 @@ class Spectrum:
     def load(self, filename):
         with open(filename) as infile:
             data = json.load(infile)
+
         for variable_name in data:
             containing = data[variable_name]
             if variable_name in self.list_of_variables:
                 if isinstance(containing, list):
-                    setattr(self, variable_name, np.array(containing))
-                else:
-                    setattr(self, variable_name, containing)
+                    containing = np.array(containing)
+                    if None in containing:  # allows to load masked numpy arrays
+                        containing = np.ma.masked_invalid(containing.astype(np.float))
+                setattr(self, variable_name, containing)
+
             else:
                 raise KeyError('Key not in list of variables')
