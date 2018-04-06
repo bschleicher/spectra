@@ -310,7 +310,7 @@ class Spectrum:
         return axes
 
     def plot_thetasq(self):
-        if not self.on_theta_square_histo
+        if not self.on_theta_square_histo:
             print("No theta square histo, please run Spectrum.calc_differential_spectrum()")
             return
         self.fill_stats()
