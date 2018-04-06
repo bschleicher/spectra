@@ -298,7 +298,7 @@ class Spectrum:
         print(self.stats)
 
     def plot_flux(self, **kwargs):
-        if not self.differential_spectrum:
+        if self.differential_spectrum is None:
             print("No differential spectrum data, please run Spectrum.calc_differential_spectrum()")
             return
         axes = plot_spectrum(self.energy_center,
@@ -310,7 +310,7 @@ class Spectrum:
         return axes
 
     def plot_thetasq(self):
-        if not self.on_theta_square_histo:
+        if self.on_theta_square_histo is None:
             print("No theta square histo, please run Spectrum.calc_differential_spectrum()")
             return
         self.fill_stats()
