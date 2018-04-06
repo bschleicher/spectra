@@ -202,6 +202,11 @@ class Spectrum:
             histos = calc_onoffhisto(data_cut, self.zenith_binning, self.zenith_labels, self.energy_binning,
                                      self.energy_labels, self.theta_square)
 
+        # Save Theta-Sqare histograms
+        self.theta_square_binning = histos[1][0][1]
+        self.on_theta_square_histo = histos[1][0][0]
+        self.off_theta_square_histo = histos[1][1][0]
+
         # Zenith, Energy histograms
         self.on_histo_zenith = histos[0][0]
         self.off_histo_zenith = histos[0][1]
@@ -228,11 +233,6 @@ class Spectrum:
         self.n_excess_events_err = np.sqrt(self.n_on_events + self.alpha**2 * self.n_off_events)
 
         self.overall_significance = li_ma_significance(self.n_on_events, self.n_off_events, self.alpha)
-
-        # Save Theta-Sqare histograms
-        self.theta_square_binning = histos[1][0][1]
-        self.on_theta_square_histo = histos[1][0][0]
-        self.off_theta_square_histo = histos[1][1][0]
 
     def calc_effective_area(self, analysed_ceres_ganymed=None, ceres_list=None):
         if not ceres_list:
@@ -298,6 +298,9 @@ class Spectrum:
         print(self.stats)
 
     def plot_flux(self, **kwargs):
+        if not self.differential_spectrum:
+            print("No differential spectrum data, please run Spectrum.calc_differential_spectrum()")
+            return
         axes = plot_spectrum(self.energy_center,
                              self.energy_error,
                              self.differential_spectrum,
@@ -307,6 +310,9 @@ class Spectrum:
         return axes
 
     def plot_thetasq(self):
+        if not self.on_theta_square_histo
+            print("No theta square histo, please run Spectrum.calc_differential_spectrum()")
+            return
         self.fill_stats()
         return plot_theta(self.theta_square_binning,
                           self.on_theta_square_histo,
@@ -315,7 +321,7 @@ class Spectrum:
                           self.stats)
 
     ##############################################################
-    # Define functions to dump and load as json
+    # Define functions to dump and load variables as json
     ##############################################################
 
     def save(self, filename):
