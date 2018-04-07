@@ -37,10 +37,13 @@ def histos_from_list_of_mars_files(file_list, leaf_names, zdbins, zdlabels, ebin
     return np.array(histos)
 
 
-def calc_onoffhisto(data, zdbins, zdlabels, ebins, elabels, thetasq):
-    data = data.assign(energy=lambda x: (np.power(29.65 * x["MHillas.fSize"],
-                                                  (0.77 / np.cos((x["MPointingPos.fZd"] * 1.35 * np.pi) / 360))) +
-                                         x["MNewImagePar.fLeakage2"] * 13000))
+def calc_onoffhisto(data, zdbins, zdlabels, ebins, elabels, thetasq, energy_function=None):
+    if energy_function is None:
+        def energy_function(x):
+            return (np.power(29.65 * x["MHillas.fSize"],
+                             (0.77 / np.cos((x["MPointingPos.fZd"] * 1.35 * np.pi) / 360))) +
+                    x["MNewImagePar.fLeakage2"] * 13000)
+    data = data.assign(energy=energy_function)
     on_histo = np.zeros([len(zdlabels), len(elabels)])
     off_histo = np.zeros([len(zdlabels), len(elabels)])
 

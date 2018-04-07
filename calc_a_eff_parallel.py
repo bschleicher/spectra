@@ -48,7 +48,6 @@ def calc_num_mc_entries_hd5(ebins, zdbins, path):
         parts.append(histo)
     return np.sum(np.array(parts), axis=0)
 
-
 def calc_a_eff_parallel_hd5(ebins,
                             zdbins,
                             correction_factors=True,
