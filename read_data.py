@@ -4,12 +4,15 @@ import read_mars
 from multiprocessing import Pool
 
 
-def read_data_and_bg_cut(entry, tree_name, leafs):
+def read_data_and_bg_cut(entry, tree_name, leafs, cut_function=None):
     temp = read_mars.read_mars(entry, tree=tree_name, leaf_names=leafs)
     # Apply Johannes Cut: Area < log10(Size) * 898 -1535
-    temp = pd.DataFrame(temp[temp.apply(
-        lambda x: (np.pi * x['MHillas.fLength'] * x['MHillas.fWidth']) < (np.log10(x['MHillas.fSize']) * 898 - 1535),
-        axis=1)], columns=leafs)
+    if cut_function is None:
+        def cut_function(x):
+            return (np.pi * x['MHillas.fLength'] * x['MHillas.fWidth']) < \
+                   (np.log10(x['MHillas.fSize']) * 898 - 1535)
+
+    temp = pd.DataFrame(temp[temp.apply(cut_function, axis=1)], columns=leafs)
 
     return temp
 
