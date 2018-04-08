@@ -1,5 +1,6 @@
 import numpy as np
 import json
+from scipy.optimize import minimize_scalar
 from read_mars import read_mars
 from fact.analysis.statistics import li_ma_significance
 
@@ -8,6 +9,8 @@ from read_data import histos_from_list_of_mars_files, calc_onoffhisto
 from on_time_parallel import calc_on_time
 from spectrum_eff_eff_area import symmetric_log10_errors
 from plotting import plot_spectrum, plot_theta
+
+from tqdm import tqdm
 
 
 class Spectrum:
@@ -77,7 +80,7 @@ class Spectrum:
         if ebins:
             self.energy_binning = ebins
         else:
-            self.energy_binning = np.logspace(np.log10(200.0), np.log10(50000.0), 9)
+                self.energy_binning = np.logspace(np.log10(200.0), np.log10(50000.0), 9)
         if zdbins:
             self.zenith_binning = zdbins
         else:
@@ -148,7 +151,7 @@ class Spectrum:
     def set_theta_square(self, theta_square):
         self.theta_square = theta_square
 
-    def use_correction_factors(self, true_or_false=True):
+    def set_correction_factors(self, true_or_false=True):
         self.use_correction_factors = true_or_false
 
     def set_alpha(self, alpha):
@@ -169,6 +172,71 @@ class Spectrum:
 
     def set_run_list_star(self, star_list):
         self.run_list_star = star_list
+
+    ##############################################################
+    # Optimise Theta and optimise e-binning
+    ##############################################################
+    def read_events(self):
+        select_leaves = ['DataType.fVal', 'MPointingPos.fZd', 'FileId.fVal',
+                         'MTime.fMjd', 'MTime.fTime.fMilliSec', 'MTime.fNanoSec',
+                         'MHillas.fSize', 'ThetaSquared.fVal', 'MNewImagePar.fLeakage2',
+                         'MHillas.fLength', 'MHillas.fWidth']
+        data = read_mars(self.ganymed_file_data, leaf_names=select_leaves)
+        data = data.assign(energy=lambda x: (
+                                             np.power(29.65 * x["MHillas.fSize"],
+                                                      (0.77 / np.cos((x["MPointingPos.fZd"] * 1.35 * np.pi)
+                                                       / 360))) + x["MNewImagePar.fLeakage2"] * 13000))
+        return data
+
+    def optimize_theta(self):
+        events = self.read_events()
+
+        def overall_sigma(x, data=None):
+            source_data = data.loc[data["ThetaSquared.fVal"] < x]
+            on_data = len(source_data.loc[source_data["DataType.fVal"] == 1.0])
+            off_data = len(source_data.loc[source_data["DataType.fVal"] == 0.0])
+            return 100 - li_ma_significance(on_data, off_data)
+
+        result = minimize_scalar(overall_sigma, bounds=[0.01, 0.1], method='Bounded', args=events)
+        self.theta_square = result.x
+        return result
+
+    def optimize_ebinning(self):
+        data = self.read_events()
+
+        source_data = data.loc[data["ThetaSquared.fVal"] < self.theta_square]
+        on_data = source_data.loc[source_data["DataType.fVal"] == 1.0]
+        off_data = source_data.loc[source_data["DataType.fVal"] == 0.0]
+
+        on_data = on_data.copy()
+        off_data = off_data.copy()
+
+        on_data.sort_values("energy", ascending=False, inplace=True)
+        off_data.sort_values("energy", ascending=False, inplace=True)
+
+        sigma_per_bin = 3
+        bin_edges = [0]
+        bin_edges_energy = [50000]
+        sigma_list = []
+        length = len(on_data)
+        for i in tqdm(range(length)):
+            low_index = bin_edges[-1]
+            high_index = i
+            n_on = len(on_data.iloc[low_index:high_index])
+            n_off = len(off_data.loc[(off_data.energy >= on_data.iloc[high_index - 1].energy) & (
+                        off_data.energy <= on_data.iloc[low_index].energy)])
+            sigma_li_ma = li_ma_significance(n_on, n_off)
+            e_high = on_data.iloc[high_index - 1].energy
+            e_low = on_data.iloc[low_index].energy
+            size = np.abs((e_high - e_low) / e_low)
+            if ((sigma_li_ma >= sigma_per_bin) & (size > 0.5)) | (i == length - 1):
+                bin_edges.append(high_index)
+                bin_edges_energy.append(int(on_data.iloc[high_index - 1].energy) + 1)
+                sigma_list.append(sigma_li_ma)
+        print(bin_edges_energy)
+        self.energy_binning = np.array(np.sort(bin_edges_energy), dtype=np.float)
+
+        self.energy_labels = np.arange(len(self.energy_binning) - 1)
 
     ##############################################################
     # Define functions to read data and calculate spectra

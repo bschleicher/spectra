@@ -1,6 +1,5 @@
 from spectrum_class import Spectrum
 import matplotlib.pyplot as plt
-from plotting import plot_spectrum
 
 # Monte Carlo simulated events:
 ceres_list = []
@@ -27,6 +26,9 @@ spectrum = Spectrum(run_list_star=star_list,
                     ganymed_file_data=ganymed_result,
                     list_of_ceres_files=ceres_list,
                     ganymed_file_mc=ganymed_mc)
+# spectrum.set_correction_factors()
+spectrum.optimize_theta()
+spectrum.optimize_ebinning()
 
 spectrum.calc_differential_spectrum()
 
@@ -40,7 +42,7 @@ plt.show()
 second = Spectrum()
 second.load(path)
 
-second.plot_flux()
+second.plot_flux(crab_do=True)
 second.plot_thetasq()
 
 plt.show()
