@@ -35,7 +35,10 @@ def calc_on_time_chunks(zdbins, zdlabels, filelist):
     on_time_per_zd_chunk = np.zeros((len(zdlabels),))
 
     for (zd, on_times) in timeranges:
-        on_time_per_zd_chunk[int(zd)] += on_times
+        if np.isnan(zd):
+            pass
+        else:
+            on_time_per_zd_chunk[int(zd)] += on_times
 
     return on_time_per_zd_chunk
 
