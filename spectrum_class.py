@@ -7,11 +7,21 @@ from fact.analysis.statistics import li_ma_significance
 from calc_a_eff_parallel import calc_a_eff_parallel_hd5
 from read_data import histos_from_list_of_mars_files, calc_onoffhisto
 from on_time_parallel import calc_on_time
-from spectrum_eff_eff_area import symmetric_log10_errors
 from plotting import plot_spectrum, plot_theta
 
 from tqdm import tqdm
 
+def symmetric_log10_errors(value, error):
+    """ Calculate upper and lower error, that appear symmetric in loglog-plots.
+
+    :param value: ndarray or float
+    :param error: ndarray or float
+    :return: array of lower error and upper error.
+    """
+    error /= (value * np.log(10))
+    error_l = value - np.ma.power(10, (np.ma.log10(value) - error))
+    error_h = np.ma.power(10, (np.ma.log10(value) + error)) - value
+    return [error_l, error_h]
 
 class Spectrum:
     """ Class containing FACT spectra and additional information"""
