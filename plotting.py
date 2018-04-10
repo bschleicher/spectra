@@ -9,12 +9,18 @@ def plot_spectrum(bin_centers,
                   significance,
                   hess20140624=False,
                   crab_do=False,
-                  filename=None):
+                  filename=None,
+                  ax_flux=None,
+                  ax_sig=None,
+                  label="F",
+                  **kwargs):
 
-    fig = plt.figure()
+    if (ax_flux is None) and (ax_sig is None):
+        fig = plt.figure()
 
-    ax_sig = plt.subplot2grid((8, 1), (6, 0), rowspan=2)  # inspired from pyfact
-    ax_flux = plt.subplot2grid((8, 1), (1, 0), rowspan=5, sharex=ax_sig)
+        ax_sig = plt.subplot2grid((8, 1), (6, 0), rowspan=2)  # inspired from pyfact
+        ax_flux = plt.subplot2grid((8, 1), (1, 0), rowspan=5, sharex=ax_sig)
+
     if hess20140624:
         hess_x = np.array((1.70488, 2.1131, 2.51518, 3.02825, 3.65982, 4.43106, 5.37151, 6.50896, 7.87743, 9.52215,
                            11.4901, 13.8626, 16.8379, 20.4584, 24.8479, 30.2065, 36.7507, 44.8404))
@@ -48,9 +54,9 @@ def plot_spectrum(bin_centers,
              1.683129e-14, 6.689311e-15])
         ax_flux.errorbar(x=crab_do_x, y=crab_do_y, yerr=crab_do_y_err,
                          xerr=[crab_do_x - crab_do_x_l, crab_do_x_h - crab_do_x], fmt="o", label="Crab Dortmund")
-    ax_flux.errorbar(x=bin_centers, y=flux, yerr=flux_err, xerr=energy_err, fmt=".", label="F")
+    ax_flux.errorbar(x=bin_centers, y=flux, yerr=flux_err, xerr=energy_err, fmt=".", label=label, **kwargs)
 
-    ax_sig.plot(bin_centers, significance, "o")
+    ax_sig.plot(bin_centers, significance, "o", **kwargs)
 
     plt.xscale("log")
     plt.yscale("log")
