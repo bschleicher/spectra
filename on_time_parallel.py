@@ -64,13 +64,20 @@ def calc_on_time(ganymed_input_list, zdbins, zdlabels, use_multiprocessing=True,
     :param n_chunks: int, number of chunks to divide the ganymed_input_list into
     :return: ndarray, on-time of the observation per zenith distance bin
     """
+
+
     ganymed_input_list = [entry.strip().replace(" ", "/") for entry in ganymed_input_list if not entry.startswith('#')]
+
+    if len(ganymed_input_list) < n_chunks:
+        n_chunks = len(ganymed_input_list)
+        print("Number of runs smaller than specified number of chunks, use {} chunks instead.".format(n_chunks))
+
     parts = (len(ganymed_input_list) / n_chunks * np.arange(n_chunks + 1)).astype("int_")
 
     print("\nOn time calculation ---------")
     print("Calculate the on time in", n_chunks, "chunks with a total of", len(ganymed_input_list), "entries.")
 
-    on_time_parts = np.empty([n_chunks, len(zdbins) - 1])
+    on_time_parts = np.zeros([n_chunks, len(zdbins) - 1])
 
     if use_multiprocessing:
         pool = mp.Pool()
