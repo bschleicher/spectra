@@ -43,7 +43,7 @@ def calc_on_time_chunks(zdbins, zdlabels, filelist):
     return on_time_per_zd_chunk
 
 
-def calc_on_time(ganymed_input_list, zdbins, zdlabels, n_chunks=8):
+def calc_on_time(ganymed_input_list, zdbins, zdlabels, use_multiprocessing=True, n_chunks=8):
     """Calculate the observation on-time per zenith distance bin in parallel.
     
     Divide the input list of star files to n_chunks and start the on-time calculation per zenith distance bin
@@ -60,6 +60,7 @@ def calc_on_time(ganymed_input_list, zdbins, zdlabels, n_chunks=8):
     :param ganymed_input_list: array of strings containing the star_files
     :param zdbins: ndarray
     :param zdlabels: ndarray
+    :param use_multiprocessing: bool, if True, use multiprocessing
     :param n_chunks: int, number of chunks to divide the ganymed_input_list into
     :return: ndarray, on-time of the observation per zenith distance bin
     """
@@ -71,13 +72,18 @@ def calc_on_time(ganymed_input_list, zdbins, zdlabels, n_chunks=8):
 
     on_time_parts = np.empty([n_chunks, len(zdbins) - 1])
 
-    pool = mp.Pool()
-    result = [pool.apply_async(calc_on_time_chunks, args=(zdbins, zdlabels, ganymed_input_list[parts[i]:parts[i + 1]]))
-              for i in range(n_chunks)]
-    pool.close()
-    pool.join()
-    for r in range(n_chunks):
-        on_time_parts[r] = result[r].get()
+    if use_multiprocessing:
+        pool = mp.Pool()
+        result = [pool.apply_async(calc_on_time_chunks,
+                                   args=(zdbins, zdlabels, ganymed_input_list[parts[i]:parts[i + 1]]))
+                  for i in range(n_chunks)]
+        pool.close()
+        pool.join()
+        for r in range(n_chunks):
+            on_time_parts[r] = result[r].get()
+    else:
+        on_time_parts = [calc_on_time_chunks(zdbins, zdlabels, ganymed_input_list[parts[i]:parts[i + 1]])
+                         for i in range(n_chunks)]
 
     print("--------- Finished on time calculation.")
     return np.sum(on_time_parts, axis=0)

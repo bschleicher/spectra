@@ -252,12 +252,16 @@ class Spectrum:
     # Define functions to read data and calculate spectra
     ##############################################################
 
-    def calc_ontime(self, data=None, n_chunks=8):
+    def calc_ontime(self, data=None, n_chunks=8, use_multiprocessing=True):
         if data:
             self.run_list_star = data
         if not self.run_list_star:
             print('No list of star-files given, please provide one')
-        self.on_time_per_zd = calc_on_time(self.run_list_star, self.zenith_binning, self.zenith_labels, n_chunks)
+        self.on_time_per_zd = calc_on_time(self.run_list_star,
+                                           self.zenith_binning,
+                                           self.zenith_labels,
+                                           n_chunks=n_chunks,
+                                           use_multiprocessing=use_multiprocessing)
 
         self.total_on_time = np.sum(self.on_time_per_zd)
 
@@ -326,10 +330,10 @@ class Spectrum:
                                                       list_of_hdf_ceres_files=ceres_list)
         return self.effective_area
 
-    def calc_differential_spectrum(self):
+    def calc_differential_spectrum(self, use_multiprocessing=True):
 
         if not self.on_time_per_zd:
-            self.calc_ontime()
+            self.calc_ontime(use_multiprocessing=use_multiprocessing)
 
         if not self.on_histo:
             self.calc_on_off_histo()
