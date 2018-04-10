@@ -241,8 +241,10 @@ class Spectrum:
             size = np.abs((e_high - e_low) / e_low)
             if ((sigma_li_ma >= sigma_per_bin) & (size > 0.5)) | (i == length - 1):
                 bin_edges.append(high_index)
-                bin_edges_energy.append(int(on_data.iloc[high_index - 1].energy) + 1)
-                sigma_list.append(sigma_li_ma)
+                energy = int(on_data.iloc[high_index - 1].energy) + 1
+                if energy != bin_edges_energy[-1]:
+                    bin_edges_energy.append(energy)
+                    sigma_list.append(sigma_li_ma)
         print(bin_edges_energy)
         self.energy_binning = np.array(np.sort(bin_edges_energy), dtype=np.float)
 
