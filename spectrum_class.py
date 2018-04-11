@@ -11,6 +11,7 @@ from plotting import plot_spectrum, plot_theta
 
 from tqdm import tqdm
 
+
 def symmetric_log10_errors(value, error):
     """ Calculate upper and lower error, that appear symmetric in loglog-plots.
 
@@ -22,6 +23,7 @@ def symmetric_log10_errors(value, error):
     error_l = value - np.ma.power(10, (np.ma.log10(value) - error))
     error_h = np.ma.power(10, (np.ma.log10(value) + error)) - value
     return [error_l, error_h]
+
 
 class Spectrum:
     """ Class containing FACT spectra and additional information"""
@@ -211,7 +213,12 @@ class Spectrum:
         self.theta_square = result.x
         return result
 
-    def optimize_ebinning(self):
+    def optimize_ebinning(self,
+                          sigma_threshold=2.5,
+                          min_bin_percentage=0.4,
+                          min_counts_per_bin=10,
+                          start_from_low_energy=True):
+
         data = self.read_events()
 
         source_data = data.loc[data["ThetaSquared.fVal"] < self.theta_square]
@@ -221,30 +228,47 @@ class Spectrum:
         on_data = on_data.copy()
         off_data = off_data.copy()
 
-        on_data.sort_values("energy", ascending=False, inplace=True)
-        off_data.sort_values("energy", ascending=False, inplace=True)
+        on_data.sort_values("energy", ascending=start_from_low_energy, inplace=True)
+        off_data.sort_values("energy", ascending=start_from_low_energy, inplace=True)
 
-        sigma_per_bin = 3
-        bin_edges = [0]
-        bin_edges_energy = [50000]
+        sigma_per_bin = sigma_threshold
         sigma_list = []
-        length = len(on_data)
-        for i in tqdm(range(length)):
+
+        def calc_and_append():
             low_index = bin_edges[-1]
             high_index = i
             n_on = len(on_data.iloc[low_index:high_index])
-            n_off = len(off_data.loc[(off_data.energy >= on_data.iloc[high_index - 1].energy) & (
-                        off_data.energy <= on_data.iloc[low_index].energy)])
+            n_off = len(off_data.loc[(off_data.energy >= on_data.iloc[low_index].energy) & (
+                off_data.energy <= on_data.iloc[high_index].energy)])
             sigma_li_ma = li_ma_significance(n_on, n_off)
-            e_high = on_data.iloc[high_index - 1].energy
+            nexcess = n_on * self.alpha * n_off
+            e_high = on_data.iloc[high_index].energy
             e_low = on_data.iloc[low_index].energy
             size = np.abs((e_high - e_low) / e_low)
-            if ((sigma_li_ma >= sigma_per_bin) & (size > 0.5)) | (i == length - 1):
+            if (((sigma_li_ma >= sigma_per_bin) & (size > min_bin_percentage) &
+                 (nexcess > min_counts_per_bin)) | (i == length - 1)):
                 bin_edges.append(high_index)
                 energy = int(on_data.iloc[high_index - 1].energy) + 1
                 if energy != bin_edges_energy[-1]:
                     bin_edges_energy.append(energy)
                     sigma_list.append(sigma_li_ma)
+
+        if start_from_low_energy:
+            min_energy = int(on_data.iloc[0].energy * 1.5) + 1
+            bin_edges = [0, on_data.energy.searchsorted(min_energy)[0]]
+            bin_edges_energy = [int(on_data.iloc[0].energy) + 1, min_energy]
+
+            length = len(on_data)
+            for i in tqdm(range(length)):
+                calc_and_append()
+        else:
+            bin_edges = [0]
+            bin_edges_energy = [int(on_data.iloc[0].energy) + 1]
+
+            length = len(on_data)
+            for i in tqdm(range(length)):
+                calc_and_append()
+
         print(bin_edges_energy)
         self.energy_binning = np.array(np.sort(bin_edges_energy), dtype=np.float)
 
