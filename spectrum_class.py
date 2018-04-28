@@ -316,8 +316,7 @@ class Spectrum:
                                                     self.theta_square)
         else:
             data_cut = read_mars(self.ganymed_file_data, leaf_names=select_leaves)
-            histos = calc_onoffhisto(data_cut, self.zenith_binning, self.zenith_labels, self.energy_binning,
-                                     self.energy_labels, self.theta_square)
+            histos = calc_onoffhisto(data_cut, self.zenith_binning, self.energy_binning, self.theta_square)
 
         # Save Theta-Sqare histograms
         self.theta_square_binning = histos[1][0][1]
