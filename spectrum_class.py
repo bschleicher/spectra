@@ -42,6 +42,7 @@ class Spectrum:
                          "energy_error",
                          "on_time_per_zd",              # 1D-Array of On-Time per ZenithDistance bin
                          "total_on_time",               # Total On-Time of the observation
+                         "zenith_binning_on_time",      # Save the zenith binning used for On-Time calculation
                          "on_histo_zenith",             # 2D-Histogram Energy:ZenithDistance of On-Events
                          "off_histo_zenith",            # 2D-Histogram Energy:ZenithDistance of Off-Events
                          "on_histo",                    # 1D-Histogram in Energy of On-Events
@@ -116,6 +117,7 @@ class Spectrum:
         # Declare Placeholder variables
         self.on_time_per_zd = None
         self.total_on_time = None
+        self.zenith_binning_on_time = None
 
         self.on_histo_zenith = None
         self.off_histo_zenith = None
@@ -278,7 +280,12 @@ class Spectrum:
     # Define functions to read data and calculate spectra
     ##############################################################
 
-    def calc_ontime(self, data=None, n_chunks=8, use_multiprocessing=True):
+    def calc_ontime(self, data=None, n_chunks=8, use_multiprocessing=True, force_calc=False):
+        if self.on_time_per_zd is not None:
+            if (not force_calc) or (self.zenith_binning == self.zenith_binning_on_time):
+                print("Skipping on-time calculation, because zenith binning has not changed.")
+                return self.on_time_per_zd
+
         if data:
             self.run_list_star = data
         if not self.run_list_star:
@@ -288,8 +295,10 @@ class Spectrum:
                                            self.zenith_labels,
                                            n_chunks=n_chunks,
                                            use_multiprocessing=use_multiprocessing)
-
+        # Save binning to check if the binning has changed and the on time calculation skipped
+        self.zenith_binning_on_time = self.zenith_binning
         self.total_on_time = np.sum(self.on_time_per_zd)
+        return self.on_time_per_zd
 
     def calc_on_off_histo(self, ganymed_file=None):
         select_leaves = ['DataType.fVal', 'MPointingPos.fZd', 'FileId.fVal', 'MTime.fMjd', 'MTime.fTime.fMilliSec',
