@@ -2,7 +2,6 @@ import pandas as pd
 import os
 from tqdm import tqdm
 
-
 from astropy import time as at
 # %matplotlib inline
 import matplotlib as ml
@@ -12,23 +11,36 @@ from read_mars import read_mars
 
 plt = ml.pyplot
 from matplotlib.colors import LogNorm
-#ml.rcParams['figure.figsize'] = (20.0, 10.0)
+
+# ml.rcParams['figure.figsize'] = (20.0, 10.0)
 
 
-select_leaves = ["MMcEvt.MMcEvtBasic.fEnergy","MHillas.fSize","MPointingPos.fZd","MNewImagePar.fLeakage2","ThetaSquared.fVal"]
-gamma = read_mars("/media/michi/523E69793E69574F/gamma/star_new/hzd_gammasall-analysis.root", leaf_names=select_leaves)
-gamma['theta'] = pd.cut(gamma["ThetaSquared.fVal"], [0, 0.085, 10], labels=[0, 1], include_lowest=True)
+select_leaves = ["MMcEvt.MMcEvtBasic.fEnergy", "MHillas.fSize", "MPointingPos.fZd", "MNewImagePar.fLeakage2",
+                 "ThetaSquared.fVal"]
+gamma2 = read_mars("/media/michi/523E69793E69574F/gamma/star_new/hzd_gammasall-analysis.root", leaf_names=select_leaves)
+gamma = gamma2.loc[(gamma2["MPointingPos.fZd"]<30)]
+gamma['theta'] = pd.cut(gamma["ThetaSquared.fVal"], [0, 0.023, 10], labels=[0, 1], include_lowest=True)
 
 gamma = gamma.groupby('theta').get_group(0)
 
+gamma = gamma.assign(energy=lambda x: (
+    np.power(20 * x["MHillas.fSize"], (0.80 / np.cos((x["MPointingPos.fZd"] * 1.4 * 3.14) / 360))) + x[
+        "MNewImagePar.fLeakage2"] * 13000))
 
-gamma = gamma.assign(energy = lambda x: (np.power(20*x["MHillas.fSize"],(0.80/np.cos((x["MPointingPos.fZd"]*1.4*3.14)/360)) )+x["MNewImagePar.fLeakage2"]*13000))
+bins = np.logspace(np.log10(200), np.log10(50000), 15)
+gamma["acut"] = pd.cut(gamma["MMcEvt.MMcEvtBasic.fEnergy"], bins=bins)
+
+bins = np.log10(bins)
+x = (bins[:-1] + bins[1:]) / 2
+xerr = (bins[1:] - bins[:-1]) / 2
 
 from matplotlib.widgets import Slider, Button, RadioButtons
 
-def energy(gamma, a, b, c):
-    gamma = gamma.assign(energy = lambda x: (np.power(a*x["MHillas.fSize"],(b/np.cos((x["MPointingPos.fZd"]*c*3.14)/360)) )+x["MNewImagePar.fLeakage2"]*13000))
-    return gamma["energy"]
+
+def energy(x, a, b, c):
+    return np.power(a * x["MHillas.fSize"], (b / np.cos((x["MPointingPos.fZd"] * c * np.pi) / 360))) + x[
+            "MNewImagePar.fLeakage2"] * 13000
+
 
 axis_color = 'lightgoldenrodyellow'
 fig = plt.figure()
@@ -39,29 +51,51 @@ fig.subplots_adjust(left=0.25, bottom=0.25)
 a_0 = 20.0
 b_0 = 0.80
 c_0 = 1.4
-line = ax.hist2d(np.log10(gamma["MMcEvt.MMcEvtBasic.fEnergy"]),np.log10(gamma["energy"]),bins=100)
-ax.set_xlim([2,4.8])
+line = ax.hist2d(np.log10(gamma["MMcEvt.MMcEvtBasic.fEnergy"]), np.log10(gamma["energy"]), bins=100)
+ax.set_xlim([2, 4.8])
 ax.set_ylim([2, 5])
-ax.plot([2,5],[2,5])
+ax.plot([2, 5], [2, 5])
 
 # Add two sliders for tweaking the parameters
-a_slider_ax  = fig.add_axes([0.25, 0.15, 0.65, 0.03], axisbg=axis_color)
+a_slider_ax = fig.add_axes([0.25, 0.15, 0.65, 0.03], axisbg=axis_color)
 a_slider = Slider(a_slider_ax, 'a', 3.0, 70.0, valinit=a_0)
 b_slider_ax = fig.add_axes([0.25, 0.1, 0.65, 0.03], axisbg=axis_color)
 b_slider = Slider(b_slider_ax, 'b', 0.2, 3, valinit=b_0)
 c_slider_ax = fig.add_axes([0.25, 0.05, 0.65, 0.03], axisbg=axis_color)
 c_slider = Slider(c_slider_ax, 'c', 0.5, 2.5, valinit=c_0)
 
+gamma_aim = 1.0
+m = 2.7
+factor = 50000 ** (-m + gamma_aim)
+exponent = -gamma_aim + m
 
 def sliders_on_changed(val):
-
     ydata = energy(gamma, a_slider.val, b_slider.val, c_slider.val)
     ax.clear()
-    #ax.hist2d(np.log10(gamma["MMcEvt.MMcEvtBasic.fEnergy"]), np.log10(ydata), bins=100, norm=LogNorm())
-    histo = np.histogram2d(np.log10(ydata), np.log10(gamma['MMcEvt.MMcEvtBasic.fEnergy']), bins=100)
-    ax.imshow(np.divide(histo[0], np.sum(histo[0], axis=0)), origin="lower")
-    ax.plot([2, 5], [2, 5])
+    # ax.hist2d(np.log10(gamma["MMcEvt.MMcEvtBasic.fEnergy"]), np.log10(ydata), bins=100, norm=LogNorm())
+    #histo = np.histogram2d(np.log10(ydata), np.log10(gamma['MMcEvt.MMcEvtBasic.fEnergy']), bins=100)
+    #ax.imshow(np.divide(histo[0], np.sum(histo[0], axis=0)), origin="lower")
+    gamma["delta"] = (ydata - gamma["MMcEvt.MMcEvtBasic.fEnergy"])/gamma["MMcEvt.MMcEvtBasic.fEnergy"]
+    ax.hist2d(np.log10(gamma["MMcEvt.MMcEvtBasic.fEnergy"]),
+              gamma.delta.values,
+              bins = 100)
+
+              #weights=np.power(gamma["MMcEvt.MMcEvtBasic.fEnergy"].values, exponent) * factor)
+
+
+    statistics =  gamma.groupby("acut").agg({"delta": ["mean", "std"]}).delta
+    ax.errorbar(x=x,
+                 xerr=xerr,
+                 y=statistics["mean"].values,
+                 yerr=statistics["std"].values,
+                 fmt=".")
+
+    ax.grid()
+    ax.set_ylim(-1.5,1.5)
+    #ax.plot([0, 0], [5, 0])
     fig.canvas.draw_idle()
+
+
 a_slider.on_changed(sliders_on_changed)
 b_slider.on_changed(sliders_on_changed)
 c_slider.on_changed(sliders_on_changed)
@@ -69,12 +103,14 @@ c_slider.on_changed(sliders_on_changed)
 # Add a button for resetting the parameters
 reset_button_ax = fig.add_axes([0.8, 0.025, 0.1, 0.04])
 reset_button = Button(reset_button_ax, 'Reset', color=axis_color, hovercolor='0.975')
+
+
 def reset_button_on_clicked(mouse_event):
     a_slider.reset()
     b_slider.reset()
     c_slider.reset()
+
+
 reset_button.on_clicked(reset_button_on_clicked)
-
-
 
 plt.show()
