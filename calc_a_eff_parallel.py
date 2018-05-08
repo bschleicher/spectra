@@ -4,6 +4,8 @@ import multiprocessing as mp
 import os
 import pandas as pd
 from tqdm import tqdm
+from read_mars import read_mars
+from read_data import calc_onoffhisto
 
 
 def calc_num_mc_entries(ebins, zdbins, n_chunks, chunk, path):
@@ -55,6 +57,23 @@ def calc_a_eff_parallel_hd5(ebins,
                             path="/home/guest/mblank/",
                             list_of_hdf_ceres_files="/home/michi/read_mars/ceres_part"):
 
+    leafs = ["DataType.fVal",
+             "MPointingPos.fZd",
+             "MMcEvt.MMcEvtBasic.fEnergy",
+             "MHillas.fSize",
+             "ThetaSquared.fVal",
+             "MNewImagePar.fLeakage2"]
+    df = read_mars(path, leaf_names=leafs)
+    if correction_factors:
+        energy_function = None
+    else:
+        def energy_function(x):
+            return x["MMcEvt.MMcEvtBasic.fEnergy"]
+
+    hist, theta = calc_onoffhisto(df, zdbins, ebins, theta_square_cut, energy_function=energy_function)
+    n_surviving = hist[0]
+
+    """
     theta_square_cut = str(theta_square_cut)
     print("\n Calculating the effective area. ---------")
 
@@ -78,7 +97,7 @@ def calc_a_eff_parallel_hd5(ebins,
     for i in range(len(ebins) - 1):
         for j in range(len(zdbins) - 1):
             n_surviving[j, i] = surviving.GetBinContent(i + 1, j + 1)  # +1, da in ROOT bin 0 der underflow bin ist.
-
+    """
 
     n_mc = calc_num_mc_entries_hd5(ebins, zdbins, list_of_hdf_ceres_files)
 
