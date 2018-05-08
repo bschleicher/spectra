@@ -300,9 +300,11 @@ class Spectrum:
         self.total_on_time = np.sum(self.on_time_per_zd)
         return self.on_time_per_zd
 
-    def calc_on_off_histo(self, ganymed_file=None):
+    def calc_on_off_histo(self, ganymed_file=None, energy_function=None):
         select_leaves = ['DataType.fVal', 'MPointingPos.fZd', 'FileId.fVal', 'MTime.fMjd', 'MTime.fTime.fMilliSec',
-                         'MTime.fNanoSec', 'MHillas.fSize', 'ThetaSquared.fVal', 'MNewImagePar.fLeakage2']
+                         'MTime.fNanoSec', 'MHillas.fSize', 'ThetaSquared.fVal', 'MNewImagePar.fLeakage2',
+                         'MHillas.fWidth', 'MHillasSrc.fDist', 'MHillasExt.fM3Long',
+                         'MHillasExt.fSlopeLong']
         if ganymed_file:
             self.ganymed_file_data = ganymed_file
 
@@ -316,7 +318,11 @@ class Spectrum:
                                                     self.theta_square)
         else:
             data_cut = read_mars(self.ganymed_file_data, leaf_names=select_leaves)
-            histos = calc_onoffhisto(data_cut, self.zenith_binning, self.energy_binning, self.theta_square)
+            histos = calc_onoffhisto(data_cut,
+                                     self.zenith_binning,
+                                     self.energy_binning,
+                                     self.theta_square,
+                                     energy_function=energy_function)
 
         # Save Theta-Sqare histograms
         self.theta_square_binning = histos[1][0][1]
@@ -364,13 +370,13 @@ class Spectrum:
                                                       list_of_hdf_ceres_files=ceres_list)
         return self.effective_area
 
-    def calc_differential_spectrum(self, use_multiprocessing=True):
+    def calc_differential_spectrum(self, use_multiprocessing=True, efunc=None):
 
         if not self.on_time_per_zd:
             self.calc_ontime(use_multiprocessing=use_multiprocessing)
 
         if not self.on_histo:
-            self.calc_on_off_histo()
+            self.calc_on_off_histo(energy_function=efunc)
 
         if not self.effective_area:
             self.calc_effective_area()
