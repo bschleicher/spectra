@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 
 def plot_spectrum(bin_centers,
@@ -8,6 +9,7 @@ def plot_spectrum(bin_centers,
                   flux_err,
                   significance,
                   hess20140624=False,
+                  hess_flare=False,
                   crab_do=False,
                   filename=None,
                   ax_flux=None,
@@ -18,8 +20,8 @@ def plot_spectrum(bin_centers,
     if (ax_flux is None) and (ax_sig is None):
         fig = plt.figure()
 
-        ax_sig = plt.subplot2grid((8, 1), (6, 0), rowspan=2)  # inspired from pyfact
-        ax_flux = plt.subplot2grid((8, 1), (1, 0), rowspan=5, sharex=ax_sig)
+        ax_sig = plt.subplot2grid((7, 1), (6, 0), rowspan=2)  # inspired from pyfact
+        ax_flux = plt.subplot2grid((7, 1), (1, 0), rowspan=5, sharex=ax_sig)
 
     if hess20140624:
         hess_x = np.array((1.70488, 2.1131, 2.51518, 3.02825, 3.65982, 4.43106, 5.37151, 6.50896, 7.87743, 9.52215,
@@ -40,6 +42,15 @@ def plot_spectrum(bin_centers,
              2.24845e-15, 1.34066e-15]) - hess_y
 
         ax_flux.errorbar(x=hess_x * 1000, y=hess_y, yerr=[hess_yl, hess_yh], fmt=".", label="HESS 24.06.2014")
+
+    if hess_flare:
+        hess = pd.read_table("/home/michi/pyfact/hess2014flare.txt", names=["E", "F", "Fu", "Fl"])
+        ax_flux.errorbar(x=hess.E.values*1000,
+                         y=hess.F,
+                         yerr=[(hess.F-hess.Fl).values,(hess.Fu-hess.F).values],
+                         fmt=".",
+                         label="Hess Flare 23.06.2014")
+
     if crab_do:
         crab_do_x_l = np.array(
             [251.18867, 398.1072, 630.9573, 1000.0, 1584.8929, 2511.8861, 3981.072, 6309.573, 10000.0])
