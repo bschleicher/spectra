@@ -356,7 +356,7 @@ class Spectrum:
 
         self.overall_significance = li_ma_significance(self.n_on_events, self.n_off_events, self.alpha)
 
-    def calc_effective_area(self, analysed_ceres_ganymed=None, ceres_list=None):
+    def calc_effective_area(self, analysed_ceres_ganymed=None, ceres_list=None, energy_function=None):
         if not ceres_list:
             ceres_list = self.list_of_ceres_files
         if not analysed_ceres_ganymed:
@@ -367,7 +367,8 @@ class Spectrum:
                                                       self.use_correction_factors,
                                                       self.theta_square,
                                                       path=analysed_ceres_ganymed,
-                                                      list_of_hdf_ceres_files=ceres_list)
+                                                      list_of_hdf_ceres_files=ceres_list,
+                                                      energy_function=energy_function)
         return self.effective_area
 
     def calc_differential_spectrum(self, use_multiprocessing=True, efunc=None):

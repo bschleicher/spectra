@@ -32,14 +32,16 @@ def calc_num_mc_entries(ebins, zdbins, n_chunks, chunk, path):
 
     return n_mc_part
 
+
 def make_hist(df, bins, weights):
     return np.histogram2d((df["MMcEvtBasic.fTelescopeTheta"].values*360)/(2*np.pi),
-                df["MMcEvtBasic.fEnergy"].values,
-                bins=bins,
-                weights = weights)[0]
+                          df["MMcEvtBasic.fEnergy"].values,
+                          bins=bins,
+                          weights=weights)[0]
+
 
 def calc_num_mc_entries_hd5(ebins, zdbins, path):
-    parts=[]
+    parts = []
     for entry in tqdm(path):
         df = pd.read_hdf(entry, "table")
         selection = ((df["MMcEvtBasic.fTelescopeTheta"].values * 360) / (2 * np.pi) < 30)
@@ -50,23 +52,28 @@ def calc_num_mc_entries_hd5(ebins, zdbins, path):
         parts.append(histo)
     return np.sum(np.array(parts), axis=0)
 
+
 def calc_a_eff_parallel_hd5(ebins,
                             zdbins,
                             correction_factors=True,
                             theta_square_cut=0.085,
                             path="/home/guest/mblank/",
-                            list_of_hdf_ceres_files="/home/michi/read_mars/ceres_part"):
+                            list_of_hdf_ceres_files="/home/michi/read_mars/ceres_part",
+                            energy_function=None):
 
     leafs = ["DataType.fVal",
              "MPointingPos.fZd",
              "MMcEvt.MMcEvtBasic.fEnergy",
              "MHillas.fSize",
              "ThetaSquared.fVal",
-             "MNewImagePar.fLeakage2"]
+             "MNewImagePar.fLeakage2",
+             'MHillas.fWidth',
+             'MHillasSrc.fDist',
+             'MHillasExt.fM3Long',
+             'MHillasExt.fSlopeLong']
+
     df = read_mars(path, leaf_names=leafs)
     if correction_factors:
-        energy_function = None
-    else:
         def energy_function(x):
             return x["MMcEvt.MMcEvtBasic.fEnergy"]
 
@@ -100,7 +107,6 @@ def calc_a_eff_parallel_hd5(ebins,
     """
 
     n_mc = calc_num_mc_entries_hd5(ebins, zdbins, list_of_hdf_ceres_files)
-
 
     a_eff = np.divide(n_surviving, n_mc) * (np.pi * (54000.0 * 54000.0))
 
