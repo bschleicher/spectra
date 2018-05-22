@@ -20,8 +20,8 @@ def plot_spectrum(bin_centers,
     if (ax_flux is None) and (ax_sig is None):
         fig = plt.figure()
 
-        ax_sig = plt.subplot2grid((7, 1), (6, 0), rowspan=2)  # inspired from pyfact
-        ax_flux = plt.subplot2grid((7, 1), (1, 0), rowspan=5, sharex=ax_sig)
+        ax_sig = plt.subplot2grid((8, 1), (6, 0), rowspan=2)  # inspired from pyfact
+        ax_flux = plt.subplot2grid((8, 1), (0, 0), rowspan=6, sharex=ax_sig)
 
     if hess20140624:
         hess_x = np.array((1.70488, 2.1131, 2.51518, 3.02825, 3.65982, 4.43106, 5.37151, 6.50896, 7.87743, 9.52215,
@@ -47,7 +47,7 @@ def plot_spectrum(bin_centers,
         hess = pd.read_table("/home/michi/pyfact/hess2014flare.txt", names=["E", "F", "Fu", "Fl"])
         ax_flux.errorbar(x=hess.E.values*1000,
                          y=hess.F,
-                         yerr=[(hess.F-hess.Fl).values,(hess.Fu-hess.F).values],
+                         yerr=[(hess.F-hess.Fl).values, (hess.Fu-hess.F).values],
                          fmt=".",
                          label="Hess Flare 23.06.2014")
 
