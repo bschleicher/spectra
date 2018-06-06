@@ -93,16 +93,20 @@ def plot_theta(thetasquare_binning, thetasquare_on, thetasquare_off, thetasq_cut
     ax.errorbar(x=(thetasquare_binning[1:]+thetasquare_binning[0:-1])/2,
                 y=thetasquare_on,
                 xerr=(thetasquare_binning[2]-thetasquare_binning[1])/2,
+                yerr=np.sqrt(thetasquare_on),
                 fmt=".",
                 label="On Data")
 
     ax.errorbar(x=(thetasquare_binning[1:] + thetasquare_binning[0:-1]) / 2,
                 y=0.2*thetasquare_off,
                 xerr=(thetasquare_binning[2] - thetasquare_binning[1])/2,
+                yerr=0.2*np.sqrt(thetasquare_off),
                 fmt=".",
                 label="0.2 * Off Data")
 
     ax.axvline(x=thetasq_cut, color='black', linestyle='-', label="Cut")
+    ax.set_ylim(0, ax.get_ylim()[1])
+    ax.set_xlim(thetasquare_binning[0], thetasquare_binning[-1])
 
     plt.xlabel('$ \Theta^2 \, \mathrm{deg^2} $')
     plt.ylabel('Counts')
