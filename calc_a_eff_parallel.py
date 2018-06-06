@@ -5,7 +5,7 @@ import os
 import pandas as pd
 from tqdm import tqdm
 from read_mars import read_mars
-from .read_data import calc_onoffhisto
+from read_data import calc_onoffhisto
 
 def calc_num_mc_entries(ebins, zdbins, n_chunks, chunk, path):
     MCFiles = ROOT.TChain("OriginalMC")

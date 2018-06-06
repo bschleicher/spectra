@@ -4,10 +4,10 @@ from scipy.optimize import minimize_scalar
 from read_mars import read_mars
 from fact.analysis.statistics import li_ma_significance
 
-from .calc_a_eff_parallel import calc_a_eff_parallel_hd5
-from .read_data import histos_from_list_of_mars_files, calc_onoffhisto
-from .on_time_parallel import calc_on_time
-from .plotting import plot_spectrum, plot_theta
+from calc_a_eff_parallel import calc_a_eff_parallel_hd5
+from read_data import histos_from_list_of_mars_files, calc_onoffhisto
+from on_time_parallel import calc_on_time
+from plotting import plot_spectrum, plot_theta
 
 from tqdm import tqdm
 
