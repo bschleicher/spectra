@@ -356,7 +356,7 @@ class Spectrum:
 
         self.overall_significance = li_ma_significance(self.n_on_events, self.n_off_events, self.alpha)
 
-    def calc_effective_area(self, analysed_ceres_ganymed=None, ceres_list=None, energy_function=None):
+    def calc_effective_area(self, analysed_ceres_ganymed=None, ceres_list=None, energy_function=None, slope_goal=None):
         if not ceres_list:
             ceres_list = self.list_of_ceres_files
         if not analysed_ceres_ganymed:
@@ -368,10 +368,11 @@ class Spectrum:
                                                       self.theta_square,
                                                       path=analysed_ceres_ganymed,
                                                       list_of_hdf_ceres_files=ceres_list,
-                                                      energy_function=energy_function)
+                                                      energy_function=energy_function,
+                                                      slope_goal=slope_goal)
         return self.effective_area
 
-    def calc_differential_spectrum(self, use_multiprocessing=True, efunc=None):
+    def calc_differential_spectrum(self, use_multiprocessing=True, efunc=None, slope_goal=None):
 
         if not self.on_time_per_zd:
             self.calc_ontime(use_multiprocessing=use_multiprocessing)
@@ -380,7 +381,7 @@ class Spectrum:
             self.calc_on_off_histo(energy_function=efunc)
 
         if not self.effective_area:
-            self.calc_effective_area()
+            self.calc_effective_area(slope_goal=slope_goal)
 
         bin_centers = np.power(10, (np.log10(self.energy_binning[1:]) + np.log10(self.energy_binning[:-1])) / 2)
         bin_width = self.energy_binning[1:] - self.energy_binning[:-1]

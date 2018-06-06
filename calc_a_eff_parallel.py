@@ -39,26 +39,38 @@ def make_hist(df, bins, weights):
                           weights=weights)[0]
 
 
-def calc_num_mc_entries_hd5(ebins, zdbins, path):
+def calc_num_mc_entries_hd5(ebins, zdbins, path, slope_goal=None):
     parts = []
     for entry in tqdm(path):
         df = pd.read_hdf(entry, "table")
         selection = ((df["MMcEvtBasic.fTelescopeTheta"].values * 360) / (2 * np.pi) < 30)
         part1 = df[selection]
         part2 = df[np.bitwise_not(selection)]
-        histo = make_hist(part1, [zdbins, ebins], np.ones(len(part1))*4)
-        histo += make_hist(part2, [zdbins, ebins], np.ones(len(part2)))
+
+        if slope_goal is None:
+            weights_part1 = np.ones(len(part1))
+            weights_part2 = np.ones(len(part2))
+        else:
+            m = 2.7
+            factor = 50000 ** (-m + slope_goal)
+            exponent = -slope_goal + m
+            weights_part1 = np.power(part1["MMcEvtBasic.fEnergy"].values, exponent) * factor
+            weights_part2 = np.power(part2["MMcEvtBasic.fEnergy"].values, exponent) * factor
+
+        histo = make_hist(part1, [zdbins, ebins], np.ones(len(part1)) * 4 * weights_part1)
+        histo += make_hist(part2, [zdbins, ebins], np.ones(len(part2)) * weights_part2)
         parts.append(histo)
     return np.sum(np.array(parts), axis=0)
 
 
 def calc_a_eff_parallel_hd5(ebins,
                             zdbins,
-                            correction_factors=True,
+                            use_correction_factors=True,
                             theta_square_cut=0.085,
                             path="/home/guest/mblank/",
                             list_of_hdf_ceres_files="/home/michi/read_mars/ceres_part",
-                            energy_function=None):
+                            energy_function=None,
+                            slope_goal=None):
 
     leafs = ["DataType.fVal",
              "MPointingPos.fZd",
@@ -72,11 +84,17 @@ def calc_a_eff_parallel_hd5(ebins,
              'MHillasExt.fSlopeLong']
 
     df = read_mars(path, leaf_names=leafs)
-    if correction_factors:
+
+    if not use_correction_factors:
         def energy_function(x):
             return x["MMcEvt.MMcEvtBasic.fEnergy"]
 
-    hist, theta = calc_onoffhisto(df, zdbins, ebins, theta_square_cut, energy_function=energy_function)
+    hist, theta = calc_onoffhisto(df,
+                                  zdbins,
+                                  ebins,
+                                  theta_square_cut,
+                                  energy_function=energy_function,
+                                  slope_goal=slope_goal)
     n_surviving = hist[0]
 
     """
@@ -105,7 +123,7 @@ def calc_a_eff_parallel_hd5(ebins,
             n_surviving[j, i] = surviving.GetBinContent(i + 1, j + 1)  # +1, da in ROOT bin 0 der underflow bin ist.
     """
 
-    n_mc = calc_num_mc_entries_hd5(ebins, zdbins, list_of_hdf_ceres_files)
+    n_mc = calc_num_mc_entries_hd5(ebins, zdbins, list_of_hdf_ceres_files, slope_goal=slope_goal)
 
     a_eff = np.divide(n_surviving, n_mc) * (np.pi * (54000.0 * 54000.0))
 
