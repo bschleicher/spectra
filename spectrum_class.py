@@ -153,14 +153,14 @@ class Spectrum:
         if elabels:
             self.energy_labels = elabels
         else:
-            self.energy_labels = range(len(ebins)-1)
+            self.energy_labels = np.arange(len(ebins)-1)
 
     def set_zenith_binning(self, zdbins, zdlabels=None):
         self.zenith_binning = zdbins
         if zdlabels:
             self.zenith_labels = zdlabels
         else:
-            self.zenith_labels = range(len(zdbins) - 1)
+            self.zenith_labels = np.arange(len(zdbins) - 1)
 
     def set_theta_square(self, theta_square):
         self.theta_square = theta_square
@@ -381,7 +381,7 @@ class Spectrum:
             self.calc_on_off_histo(energy_function=efunc)
 
         if not self.effective_area:
-            self.calc_effective_area(slope_goal=slope_goal)
+            self.calc_effective_area(slope_goal=slope_goal, energy_function=efunc)
 
         bin_centers = np.power(10, (np.log10(self.energy_binning[1:]) + np.log10(self.energy_binning[:-1])) / 2)
         bin_width = self.energy_binning[1:] - self.energy_binning[:-1]
