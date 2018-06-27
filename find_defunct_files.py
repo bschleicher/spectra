@@ -71,15 +71,15 @@ if __name__ == '__main__':
 
     if directory_or_file.endswith(".txt"):
         check_txt(directory_or_file, comment_defect_lines)
+    else:
+        for file in os.listdir(directory_or_file):
+            if file.endswith(".txt"):
+                print(file)
+                check_txt(directory_or_file + "/" + file, comment_defect_lines)
 
-    for file in os.listdir(directory_or_file):
-        if file.endswith(".txt"):
-            print(file)
-            check_txt(directory_or_file + "/" + file, comment_defect_lines)
-
-        elif file.endswith(".root"):
-            print(file)
-            check_file(directory_or_file + "/" + file)
+            elif file.endswith(".root"):
+                print(file)
+                check_file(directory_or_file + "/" + file)
 
 
 
