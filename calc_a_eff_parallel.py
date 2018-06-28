@@ -127,9 +127,11 @@ def calc_a_eff_parallel_hd5(ebins,
 
     a_eff = np.divide(n_surviving, n_mc) * (np.pi * (54000.0 * 54000.0))
 
+    a_eff_err = a_eff * np.sqrt(np.ma.divide(1, n_surviving) + np.ma.divide(1, n_mc))
+
     print("--------- Returning the effective area.")
 
-    return a_eff
+    return a_eff, a_eff_err
 
 
 def calc_a_eff_parallel(ebins,

@@ -22,7 +22,7 @@ def symmetric_log10_errors(value, error):
     error /= (value * np.log(10))
     error_l = value - np.ma.power(10, (np.ma.log10(value) - error))
     error_h = np.ma.power(10, (np.ma.log10(value) + error)) - value
-    return [error_l, error_h]
+    return np.ma.array([error_l, error_h])
 
 
 class Spectrum:
@@ -58,10 +58,12 @@ class Spectrum:
                          "theta_square_binning",        # 1D-Histogram of binning in theta_square
                          "on_theta_square_histo",       # 1D-Histogram in Theta Square of On-Events
                          "off_theta_square_histo",      # 1D-Histogram in Theta Square of Off-Events
-                         "effective_area",              # 2D-Histogram Energy:ZenithDistance of Effective Area
+                         "effective_area",              # 2D-Histogram in Energy:ZenithDistance of Effective Area
+                         "effective_area_err",          # 2D-Histogram in Energy:ZenithDistance of Error of A_eff
                          "scaled_effective_area",       # effective_area scaled by On-Time per zenith bin
+                         "scaled_effective_area_err",   # scaled error of effective area error by On-Time per zenith bin
                          "differential_spectrum",       # 1D-Histogram, in energy of spectral points dN/dE
-                         "differential_spectrum_err",    # 1D-Histogram, estimated error of spectral points
+                         "differential_spectrum_err",   # 1D-Histogram, estimated error of spectral points
                          # Dict containing overall stats: number of on, off and excess events, 
                          # total on-time in hours, significance:
                          "stats"]
@@ -137,7 +139,9 @@ class Spectrum:
         self.off_theta_square_histo = None
 
         self.effective_area = None
+        self.effective_area_err = None
         self.scaled_effective_area = None
+        self.scaled_effective_area_err = None
 
         self.differential_spectrum = None
         self.differential_spectrum_err = None
@@ -362,15 +366,15 @@ class Spectrum:
         if not analysed_ceres_ganymed:
             analysed_ceres_ganymed = self.ganymed_file_mc
 
-        self.effective_area = calc_a_eff_parallel_hd5(self.energy_binning,
-                                                      self.zenith_binning,
-                                                      self.use_correction_factors,
-                                                      self.theta_square,
-                                                      path=analysed_ceres_ganymed,
-                                                      list_of_hdf_ceres_files=ceres_list,
-                                                      energy_function=energy_function,
-                                                      slope_goal=slope_goal)
-        return self.effective_area
+        self.effective_area, self.effective_area_err = calc_a_eff_parallel_hd5(self.energy_binning,
+                                                                                 self.zenith_binning,
+                                                                                 self.use_correction_factors,
+                                                                                 self.theta_square,
+                                                                                 path=analysed_ceres_ganymed,
+                                                                                 list_of_hdf_ceres_files=ceres_list,
+                                                                                 energy_function=energy_function,
+                                                                                 slope_goal=slope_goal)
+        return self.effective_area, self.effective_area_err
 
     def calc_differential_spectrum(self, use_multiprocessing=True, efunc=None, slope_goal=None):
 
@@ -389,17 +393,22 @@ class Spectrum:
         bin_error = np.array([bin_centers - self.energy_binning[:-1], self.energy_binning[1:] - bin_centers])
 
         self.scaled_effective_area = (self.effective_area * self.on_time_per_zd[:, np.newaxis]) / self.total_on_time
+        self.scaled_effective_area_err = np.divide(self.effective_area_err * self.on_time_per_zd[:, np.newaxis],
+                                                   self.total_on_time)
+
         flux = np.divide(self.excess_histo, np.sum(self.scaled_effective_area, axis=0))
         flux = np.divide(flux, self.total_on_time)
-        flux_err = np.ma.divide(np.sqrt(self.on_histo + (1 / 25) * self.off_histo),
-                                np.sum(self.scaled_effective_area, axis=0)) / self.total_on_time
+        exc_err = np.sqrt(self.on_histo + (1 / 25) * self.off_histo)
+        a_eff_err = np.sqrt(np.sum(self.scaled_effective_area_err**2))
+        flux_err = flux * np.sqrt(np.ma.divide(exc_err, self.excess_histo)**2 +
+                                  np.ma.divide(a_eff_err, np.sum(self.scaled_effective_area, axis=0))**2)
 
         flux_de = np.divide(flux, np.divide(bin_width, 1000))
         flux_de_err = np.divide(flux_err, np.divide(bin_width, 1000))  # / (flux_de * np.log(10))
         flux_de_err_log10 = symmetric_log10_errors(flux_de, flux_de_err)
 
         self.differential_spectrum = flux_de
-        self.differential_spectrum_err = np.ma.array(flux_de_err_log10)
+        self.differential_spectrum_err = flux_de_err_log10
 
         self.energy_center = bin_centers
         self.energy_error = bin_error
