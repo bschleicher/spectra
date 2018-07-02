@@ -1,17 +1,15 @@
-import on_time_parallel
-import calc_a_eff_parallel
-import read_data
-
-import pandas as pd
-from astropy import time as at
-import matplotlib.pyplot as plt
+from spec import calc_a_eff_parallel
 import matplotlib.gridspec as gspec
+import matplotlib.pyplot as plt
 import numpy as np
-from fact.analysis.statistics import li_ma_significance
-import multiprocessing as mp
+import pandas as pd
+from spec import read_data
 import read_mars
-import matplotlib.colors as colorc
+from fact.analysis.statistics import li_ma_significance
 from scipy.optimize import curve_fit
+
+from spec import on_time_parallel
+
 
 def symmetric_log10_errors(value, error):
     """ Calculate upper and lower error, that appear symmetric in loglog-plots.
@@ -67,7 +65,7 @@ if __name__ == '__main__':
     if not ganymed_result:
         print("\nRead data from Star files. ---------")
         histos = read_data.histos_from_list_of_mars_files(star_list, select_leaves, zdbins,
-                                                                 zdlabels, ebins, elabels, thetasq)
+                                                          zdlabels, ebins, elabels, thetasq)
 
     else:
         print("\nRead data from output ganymed file ---------")

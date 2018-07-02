@@ -1,16 +1,13 @@
-import on_time_parallel
-import calc_a_eff_parallel
-import read_data
-
-import pandas as pd
-from astropy import time as at
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gspec
-import numpy as np
-from fact.analysis.statistics import li_ma_significance
-from multiprocessing import Pool
-import read_mars
+from spec import calc_a_eff_parallel
 import matplotlib.colors as colors
+import matplotlib.gridspec as gspec
+import matplotlib.pyplot as plt
+import numpy as np
+from spec import read_data
+import read_mars
+from fact.analysis.statistics import li_ma_significance
+
+from spec import on_time_parallel
 
 
 def symmetric_log10_errors(value, error):

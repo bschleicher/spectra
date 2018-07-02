@@ -1,10 +1,10 @@
-from on_time_parallel import calc_on_time
-from calc_a_eff_parallel import calc_a_eff_parallel
-import read_data
-
 import numpy as np
+from spec import read_data
+from spec.calc_a_eff_parallel import calc_a_eff_parallel
 from fact.analysis.statistics import li_ma_significance
 from read_mars import read_mars
+
+from spec.on_time_parallel import calc_on_time
 
 
 def symmetric_log10_errors(value, error):
