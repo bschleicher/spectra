@@ -81,7 +81,11 @@ def calc_a_eff_parallel_hd5(ebins,
              'MHillas.fWidth',
              'MHillasSrc.fDist',
              'MHillasExt.fM3Long',
-             'MHillasExt.fSlopeLong']
+             'MHillasExt.fSlopeLong',
+             'MHillas.fLength',
+             'MHillasExt.fSlopeSpreadWeighted',
+             'MHillasExt.fTimeSpreadWeighted',
+             'MHillasSrc.fCosDeltaAlpha']
 
     df = read_mars(path, leaf_names=leafs)
 

@@ -308,7 +308,11 @@ class Spectrum:
         select_leaves = ['DataType.fVal', 'MPointingPos.fZd', 'FileId.fVal', 'MTime.fMjd', 'MTime.fTime.fMilliSec',
                          'MTime.fNanoSec', 'MHillas.fSize', 'ThetaSquared.fVal', 'MNewImagePar.fLeakage2',
                          'MHillas.fWidth', 'MHillasSrc.fDist', 'MHillasExt.fM3Long',
-                         'MHillasExt.fSlopeLong']
+                         'MHillasExt.fSlopeLong',
+                         'MHillas.fLength',
+                         'MHillasExt.fSlopeSpreadWeighted',
+                         'MHillasExt.fTimeSpreadWeighted',
+                         'MHillasSrc.fCosDeltaAlpha']
         if ganymed_file:
             self.ganymed_file_data = ganymed_file
 

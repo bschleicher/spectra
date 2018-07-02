@@ -47,6 +47,7 @@ def calc_onoffhisto(data, zdbins, ebins, thetasq, energy_function=None, slope_go
             return (np.power(29.65 * x["MHillas.fSize"],
                              (0.77 / np.cos((x["MPointingPos.fZd"] * 1.35 * np.pi) / 360))) +
                     x["MNewImagePar.fLeakage2"] * 13000)
+    data = data.dropna().copy()
     data = data.assign(energy=energy_function)
     on_histo = np.zeros([len(zdbins)-1, len(ebins)-1])
     off_histo = np.zeros([len(zdbins)-1, len(ebins)-1])
