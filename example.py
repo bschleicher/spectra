@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from spec.spectrum_class import Spectrum
+from blockspec.spec import Spectrum
 
 # Monte Carlo simulated events:
 ceres_list = []

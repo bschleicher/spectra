@@ -1,0 +1,1 @@
+from blockspec.spec.spectrum_class import *

@@ -7,7 +7,7 @@ import pandas as pd
 from read_mars import read_mars
 from tqdm import tqdm
 
-from spec.read_data import calc_onoffhisto
+from blockspec.spec.read_data import calc_onoffhisto
 
 
 def calc_num_mc_entries(ebins, zdbins, n_chunks, chunk, path):

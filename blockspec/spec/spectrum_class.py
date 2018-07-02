@@ -1,15 +1,15 @@
 import json
 
 import numpy as np
-from spec.calc_a_eff_parallel import calc_a_eff_parallel_hd5
 from fact.analysis.statistics import li_ma_significance
-from spec.plotting import plot_spectrum, plot_theta
-from spec.read_data import histos_from_list_of_mars_files, calc_onoffhisto
 from read_mars import read_mars
 from scipy.optimize import minimize_scalar
+from blockspec.spec.calc_a_eff_parallel import calc_a_eff_parallel_hd5
+from blockspec.spec.plotting import plot_spectrum, plot_theta
+from blockspec.spec.read_data import histos_from_list_of_mars_files, calc_onoffhisto
 from tqdm import tqdm
 
-from spec.on_time_parallel import calc_on_time
+from blockspec.spec.on_time_parallel import calc_on_time
 
 
 def symmetric_log10_errors(value, error):

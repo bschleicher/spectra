@@ -1,13 +1,13 @@
-from spec import calc_a_eff_parallel
 import matplotlib.colors as colors
 import matplotlib.gridspec as gspec
 import matplotlib.pyplot as plt
 import numpy as np
-from spec import read_data
 import read_mars
 from fact.analysis.statistics import li_ma_significance
 
-from spec import on_time_parallel
+from blockspec.spec import calc_a_eff_parallel
+from blockspec.spec import read_data
+from blockspec.spec import on_time_parallel
 
 
 def symmetric_log10_errors(value, error):
