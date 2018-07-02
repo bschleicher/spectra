@@ -32,7 +32,7 @@ def check_txt(path, make_comment):
     with open(path, "r") as f:
         star_list = list(f)
     out_list = check_list(star_list)
-    if make_comment == True:
+    if make_comment is True:
         with open(path, "w") as f:
             f.write("".join(out_list))
 
@@ -53,21 +53,7 @@ def check_list(input_list):
     return input_list
 
 
-if __name__ == '__main__':
-    trees = ["Events", "Drive", "Rates"]
-    defect_list=[]
-    few_entries_list=[]
-    comment_defect_lines = False
-
-    if len(sys.argv) == 2:
-        directory_or_file = sys.argv[1]
-    if len(sys.argv) == 3:
-        directory_or_file = sys.argv[1]
-        if sys.argv[2] == "1":
-            comment_defect_lines = True
-        print("Comment out runs that raise error")
-
-    print(comment_defect_lines)
+def check_txt_or_directory(directory_or_file, comment_defect_lines=False):
 
     if directory_or_file.endswith(".txt"):
         check_txt(directory_or_file, comment_defect_lines)
@@ -80,9 +66,25 @@ if __name__ == '__main__':
             elif file.endswith(".root"):
                 print(file)
                 check_file(directory_or_file + "/" + file)
+    return defect_list, few_entries_list
 
 
+if __name__ == '__main__':
 
+    trees = ["Events", "Drive", "Rates"]
+    defect_list = []
+    few_entries_list = []
 
+    import argparse
 
+    p = argparse.ArgumentParser(description="Check existence and entries of Mars root files")
+    p.add_argument("directory_or_file", help="Directory or txt containing one root file per line")
+    p.add_argument("-c", "--comment_defect_lines",
+                   default=False,
+                   help="If true, comment out the line of the defect or missing root files in a txt ")
+    args = p.parse_args()
 
+    if args.comment_defect_lines:
+        print("Commenting out runs that raise error")
+
+    check_txt_or_directory(args.directory_or_file, args.comment_defect_lines)
