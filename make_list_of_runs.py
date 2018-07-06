@@ -8,7 +8,10 @@ if __name__ == '__main__':
     import argparse
 
     p = argparse.ArgumentParser(description="Create text file of runs retrieved from the database.")
-    p.add_argument("-n", "--filename", help="Name of the file to store the list of runs into")
+    p.add_argument("-n",
+                   "--filename",
+                   help="Name of the file to store the list of runs into",
+                   required=True)
     p.add_argument("-b",
                    "--basepath",
                    default="star/",
