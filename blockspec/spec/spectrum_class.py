@@ -25,6 +25,40 @@ def symmetric_log10_errors(value, error):
     return np.ma.array([error_l, error_h])
 
 
+def save_variables_to_json(self, filename):
+    data = {}
+    for variable_name in self.list_of_variables:
+        data[variable_name] = getattr(self, variable_name)
+
+    for entry in data:
+        if isinstance(data[entry], (np.ndarray, np.ma.core.MaskedArray)):
+            aslist = data[entry].tolist()
+            data[entry] = aslist
+        elif isinstance(data[entry], dict):
+            for element in data[entry]:
+                aslist = data[entry][element].tolist()
+                data[entry][element] = aslist
+    with open(filename, 'w') as outfile:
+        json.dump(data, outfile)
+
+
+def load_variables_from_json(self, filename):
+    with open(filename) as infile:
+        data = json.load(infile)
+
+    for variable_name in data:
+        containing = data[variable_name]
+        if variable_name in self.list_of_variables:
+            if isinstance(containing, list):
+                containing = np.array(containing)
+                if None in containing:  # allows to load masked numpy arrays
+                    containing = np.ma.masked_invalid(containing.astype(np.float))
+            setattr(self, variable_name, containing)
+
+        else:
+            raise KeyError('Key not in list of variables')
+
+
 class Spectrum:
     """ Class containing FACT spectra and additional information"""
     list_of_variables = ["use_correction_factors",
@@ -462,33 +496,7 @@ class Spectrum:
     ##############################################################
 
     def save(self, filename):
-        data = {}
-        for variable_name in self.list_of_variables:
-            data[variable_name] = getattr(self, variable_name)
-
-        for entry in data:
-            if isinstance(data[entry], (np.ndarray, np.ma.core.MaskedArray)):
-                aslist = data[entry].tolist()
-                data[entry] = aslist
-            elif isinstance(data[entry], dict):
-                for element in data[entry]:
-                    aslist = data[entry][element].tolist()
-                    data[entry][element] = aslist
-        with open(filename, 'w') as outfile:
-            json.dump(data, outfile)
+        save_variables_to_json(self, filename)
 
     def load(self, filename):
-        with open(filename) as infile:
-            data = json.load(infile)
-
-        for variable_name in data:
-            containing = data[variable_name]
-            if variable_name in self.list_of_variables:
-                if isinstance(containing, list):
-                    containing = np.array(containing)
-                    if None in containing:  # allows to load masked numpy arrays
-                        containing = np.ma.masked_invalid(containing.astype(np.float))
-                setattr(self, variable_name, containing)
-
-            else:
-                raise KeyError('Key not in list of variables')
+        load_variables_from_json(self, filename)
