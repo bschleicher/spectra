@@ -9,6 +9,7 @@ from astropy.coordinates import SkyCoord
 
 from blockspec.spec import Spectrum
 from blockspec.spec.plotting import plot_spectrum
+from blockspec.spec.spectrum_class import load_variables_from_json, save_variables_to_json
 
 import matplotlib.pyplot as plt
 
@@ -34,6 +35,29 @@ def notlog(x, a, b):
 
 
 class BlockAnalysis:
+
+    list_of_variables = ["ceres_list",
+                         "ganymed_mc",
+                         "basepath",
+                         "ganymed_path",
+                         "mars_directory",
+                         "spectrum_path",
+                         "source_name",
+                         "source_ra",
+                         "source_deg",
+                         "tfitvalues",
+                         "tfitvalues2"]
+
+    def save(self, filename):
+        save_variables_to_json(self, filename)
+        self.mapping.to_json(self.basepath + "block/mapping.json")
+
+    def load(self, filename):
+        load_variables_from_json(self, filename)
+        self.load_mapping()
+        self.load_spectral_data()
+
+
     def __init__(self,
                  ceres_list,
                  ganymed_mc="/media/michi/523E69793E69574F/daten/gamma/hzd_gammasall-analysis.root",
@@ -41,7 +65,7 @@ class BlockAnalysis:
                  ganymed_path="/media/michi/523E69793E69574F/gamma/ganymed.C",
                  mars_directory="/home/michi/Mars/",
                  spec_identifier="forest2_",
-                 source_name="Crab"
+                 source_name="Crab",
                  ):
 
         self.ceres_list = ceres_list
@@ -56,13 +80,19 @@ class BlockAnalysis:
         self.source_ra = source.ra.hour
         self.source_deg = source.dec.deg
 
-        self.mapping = pd.read_json(basepath + "blocks/mapping.json")
+        self.mapping = self.load_mapping()
         self.calc_mapping_columns()
 
         self.spectra = []
 
         self.tfitvalues = []
         self.tfitvalues2 = []
+
+    def load_mapping(self):
+        try:
+            self.mapping = pd.read_json(self.basepath + "block/mapping.json")
+        except ValueError:
+            print("Mapping file does not yet exist.")
 
     def run_spectra(self, theta_sq=0.04, efunc=None, correction_factors=False, optimize_theta=False):
         for element in self.mapping.itertuples():
