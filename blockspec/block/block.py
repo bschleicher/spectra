@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
@@ -34,7 +35,7 @@ def notlog(x, a, b):
     return np.power(10, line(np.log10(x), a, b))
 
 
-class BlockAnalysis:
+class BlockAnalysis(Sequence):
 
     list_of_variables = ["ceres_list",
                          "ganymed_mc",
@@ -48,18 +49,8 @@ class BlockAnalysis:
                          "tfitvalues",
                          "tfitvalues2"]
 
-    def save(self, filename):
-        save_variables_to_json(self, filename)
-        self.mapping.to_json(self.basepath + "block/mapping.json")
-
-    def load(self, filename):
-        load_variables_from_json(self, filename)
-        self.load_mapping()
-        self.load_spectral_data()
-
-
     def __init__(self,
-                 ceres_list,
+                 ceres_list=["/home/michi/ceres.h5"],
                  ganymed_mc="/media/michi/523E69793E69574F/daten/gamma/hzd_gammasall-analysis.root",
                  basepath='/media/michi/523E69793E69574F/daten/Crab/',
                  ganymed_path="/media/michi/523E69793E69574F/gamma/ganymed.C",
@@ -68,6 +59,7 @@ class BlockAnalysis:
                  source_name="Crab",
                  ):
 
+        super().__init__()
         self.ceres_list = ceres_list
         self.ganymed_mc = ganymed_mc
         self.basepath = basepath
@@ -87,6 +79,21 @@ class BlockAnalysis:
 
         self.tfitvalues = []
         self.tfitvalues2 = []
+
+    def __getitem__(self, i):
+        return self.mapping.iloc[i], self.spectra[i]
+
+    def __len__(self):
+        return len(self.spectra)
+
+    def save(self, filename):
+        save_variables_to_json(self, filename)
+        self.mapping.to_json(self.basepath + "block/mapping.json")
+
+    def load(self, filename):
+        load_variables_from_json(self, filename)
+        self.load_mapping()
+        self.load_spectral_data()
 
     def load_mapping(self):
         try:
