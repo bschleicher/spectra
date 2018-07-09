@@ -1,4 +1,6 @@
 import numpy as np
+import pandas as pd
+from blockspec.block.makeblocks import makeblocks
 
 
 def multiple_day_binning(df, n_days=7, **kwargs):
@@ -42,3 +44,34 @@ def multiple_day_binning(df, n_days=7, **kwargs):
     print(resampler['n_on'].count())
 
     return df['bin']
+
+
+def bayesian_block_binning(timecut, prior=5.1):
+    """Binning function for binning in bayesian blocks.
+       
+    Parameters
+    ----------
+    timecut : pandas.DataFrame
+        DataFrame to be binned.
+    prior : float, optional
+        Prior to be used for the bayesian block calculation.
+    
+    Returns
+    -------
+    pandas.Series
+        Returns a Series with the bin numbers of each entry.
+    
+    """
+
+    blocks = makeblocks(timecut.time_mean.values,
+                        timecut.excess_rate.values,
+                        timecut.excess_rate_err.values,
+                        prior)
+    s_cp = blocks[4]
+
+    print("Number of Blocks:", len(s_cp)/2)
+
+    timecut['bin'] = 0
+    timecut.loc[s_cp, 'bin'] = 1
+
+    return timecut['bin'].cumsum()
