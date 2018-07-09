@@ -73,7 +73,8 @@ class BlockAnalysis(Sequence):
         self.source_deg = source.dec.deg
 
         self.mapping = self.load_mapping()
-        self.calc_mapping_columns()
+        if self.mapping:
+            self.calc_mapping_columns()
 
         self.spectra = []
 
@@ -100,6 +101,7 @@ class BlockAnalysis(Sequence):
             self.mapping = pd.read_json(self.basepath + "block/mapping.json")
         except ValueError:
             print("Mapping file does not yet exist.")
+            self.mapping = None
 
     def run_spectra(self, theta_sq=0.04, efunc=None, correction_factors=False, optimize_theta=False):
         for element in self.mapping.itertuples():
