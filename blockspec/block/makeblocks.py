@@ -1,4 +1,5 @@
-# Copy and small adaption from https://github.com/rjlauer/lctools/blob/master/lctools/makeblocks.py
+# This algorithm is a copy from Robert Lauers lctoos with small adaptions
+# https://github.com/rjlauer/lctools/blob/master/lctools/makeblocks.py
 
 import numpy as np
 
