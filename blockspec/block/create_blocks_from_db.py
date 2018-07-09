@@ -82,27 +82,39 @@ def blocks_from_df(timecut, prior=5.1):
     return makeblocks(timecut.time_mean.values, timecut.excess_rate.values, timecut.excess_rate_err.values, prior)
 
 
-def plot_dataframe(timecut, source, as_block=False):
-    if not as_block:
-        plt.errorbar(x=timecut.time_mean.values,
-                     y=timecut.excess_rate.values,
-                     yerr=timecut.excess_rate_err.values,
-                     fmt=".",
-                     label=source)
-    else:
-        x = timecut[['run_start', 'run_stop']].values.flatten()
-        y = (timecut['excess_rate'].values[:, np.newaxis] * np.ones(2)).flatten()
-        y_err = (timecut['excess_rate_err'].values[:, np.newaxis] * np.ones(2)).flatten()
-        plt.fill_between(x, y - y_err,
-                         y + y_err,
-                         color="green",
-                         alpha=0.5,
-                         linewidth=0,
-                         label="Binning with ")
+def plot_dataframe(timecut, source):
+    plt.errorbar(x=timecut.time_mean.values,
+                 y=timecut.excess_rate.values,
+                 yerr=timecut.excess_rate_err.values,
+                 fmt=".",
+                 label=source)
+
+
+def plot_dataframe_as_block(timecut):
+    plt.errorbar(x=timecut.time_mean.values,
+                 xerr=timecut.time_width.values/2,
+                 y=timecut.excess_rate.values,
+                 fmt=" ",
+                 label="Blocks")
+    pew = timecut[['run_start', 'run_stop']].copy()
+    pew["mid"] = pew.run_stop + (pew.run_start.shift(-1) - pew.run_stop)
+    pew["mid"].iloc[-1] = pew["mid"].iloc[-2]
+    x = pew.values.flatten()
+    y = (pew['excess_rate'].values[:, np.newaxis] * np.ones(3)).flatten()
+    y_err = (pew['excess_rate_err'].values[:, np.newaxis] * np.ones(3)).flatten()
+    where = np.ones(len(x))
+    where[2::3] = 0
+
+    plt.fill_between(x, y - y_err,
+                     y + y_err,
+                     where=where,
+                     color="green",
+                     alpha=0.5,
+                     linewidth=0,
+                     label="Binning with ")
 
 
 def plot_blocks(timecut, blocks, prior):
-
     s_cp = blocks[4]
     s_amplitudes = blocks[5]
     s_amplitudes_err = blocks[6]
@@ -120,7 +132,7 @@ def plot_nightly(timecut, blocks=None, prior=None, source='Fact-source', as_bloc
     plot_dataframe(timecut, source)
 
     if as_block:
-        plot_dataframe(blocks, source, as_block=as_block)
+        plot_dataframe_as_block(blocks)
     else:
         plot_blocks(timecut, blocks, prior=prior)
 
