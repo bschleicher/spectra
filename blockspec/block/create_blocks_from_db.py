@@ -27,14 +27,12 @@ def makenightly(checked2, binning_function=None, **kwargs):
     return plotdf
 
 
-def get_and_prepare_data(source="Mrk 501",
+def get_data(source="Mrk 501",
                          first_night=20130101,
                          last_night=20180418,
-                         time=0.1,
                          datacheck_frac=0.93,
-                         thresh_value=653,
                          hum_value=80,
-                         binning_function=None):
+                         ):
     dfall = get_qla_data(last_night=last_night, first_night=first_night, sources=[source])
     df = dfall.loc[dfall.zd < 60]
     df = df.copy()
@@ -45,13 +43,22 @@ def get_and_prepare_data(source="Mrk 501",
     checked = df.loc[(df.r750cor/df.r750ref > datacheck_frac)
                      & (df.r750cor/df.r750ref < 1.2)
                      & (df.humidity < hum_value)].dropna()
+    return checked, checked2
 
+
+def apply_binning_and_timecut(checked,
+                              checked2,
+                              time=0.1,
+                              thresh_value=653,
+                              binning_function=None):
     plotdf = makenightly(checked2, binning_function=binning_function)
+    timecut = plotdf.where(plotdf.ontime > time).dropna()
+
     humcut = makenightly(checked, binning_function=binning_function)
     humcut.where((humcut.threshold_median < thresh_value) & (humcut.ontime > time), inplace=True)
     humcut.dropna(inplace=True)
-    timecut = plotdf.where(plotdf.ontime > time).dropna()
-    return timecut, humcut, checked2
+
+    return timecut, humcut
 
 
 def save_runlist_star(filename,
@@ -100,8 +107,8 @@ def plot_dataframe_as_block(timecut):
     pew["mid"] = pew.run_stop + (pew.run_start.shift(-1) - pew.run_stop)
     pew["mid"].iloc[-1] = pew["mid"].iloc[-2]
     x = pew.values.flatten()
-    y = (pew['excess_rate'].values[:, np.newaxis] * np.ones(3)).flatten()
-    y_err = (pew['excess_rate_err'].values[:, np.newaxis] * np.ones(3)).flatten()
+    y = (timecut['excess_rate'].values[:, np.newaxis] * np.ones(3)).flatten()
+    y_err = (timecut['excess_rate_err'].values[:, np.newaxis] * np.ones(3)).flatten()
     where = np.ones(len(x))
     where[2::3] = 0
 
@@ -127,7 +134,7 @@ def plot_blocks(timecut, blocks, prior):
                      label="Bayesian Blocks, prior {:.1f}".format(prior))
 
 
-def plot_nightly(timecut, blocks=None, prior=None, source='Fact-source', as_block=False):
+def plot_nightly(timecut, blocks=None, prior=None, source='Fact-Source', as_block=False):
     plt.figure()
     plot_dataframe(timecut, source)
 
@@ -225,13 +232,18 @@ def create_blocks(source="Mrk 501",
                   prior=5.1,
                   dryrun=False,
                   start_binning=None,
-                  block_binning='makeblocks'):
-    timecut, humcut, checked2 = get_and_prepare_data(source=source,
-                                                     first_night=start,
-                                                     last_night=stop,
-                                                     time=time,
-                                                     datacheck_frac=frac,
-                                                     binning_function=start_binning)
+                  block_binning='makeblocks',
+                  blocks_runwise=True):
+    checked, checked2 = get_data(source=source,
+                                 first_night=start,
+                                 last_night=stop,
+                                 datacheck_frac=frac)
+
+    timecut, humcut = apply_binning_and_timecut(checked,
+                                                checked2,
+                                                time=time,
+                                                thresh_value=653,
+                                                binning_function=start_binning)
     if use_thresh_and_hum:
         timecut = humcut
 
@@ -244,17 +256,23 @@ def create_blocks(source="Mrk 501",
                                            dryrun=dryrun)
         plot_nightly(timecut, blocks, prior=prior, source=source)
     else:
-        blocks, block_humcut, block_checked2 = get_and_prepare_data(source=source,
-                                                                    first_night=start,
-                                                                    last_night=stop,
-                                                                    time=time,
-                                                                    datacheck_frac=frac,
-                                                                    binning_function=block_binning)
+        if blocks_runwise:
+            pass_frame = checked
+            pass_frame2 = checked2
+        else:
+            pass_frame = timecut
+            pass_frame2 = humcut
+
+        blocks, block_humcut = apply_binning_and_timecut(pass_frame,
+                                                         pass_frame2,
+                                                         time=time,
+                                                         thresh_value=653,
+                                                         binning_function=block_binning)
 
         if use_thresh_and_hum:
             blocks = block_humcut
 
-        mapping, blocks = save_block_files_df(timecut, block_checked2, blocks, basepath_of_starfiles,
+        mapping, blocks = save_block_files_df(timecut, checked2, blocks, basepath_of_starfiles,
                                               basepath=destination_path, dryrun=dryrun)
 
         plot_nightly(timecut, blocks, source=source, as_block=True)
