@@ -67,13 +67,11 @@ class Spectrum:
                          "list_of_ceres_files",
                          "ganymed_file_mc",
                          "run_list_star",
-                         "energy_binning",
-                         "zenith_binning",
-                         "energy_labels",
-                         "zenith_labels",
                          "ganymed_file_data",
                          "energy_center",
                          "energy_error",
+                         "energy_binning",
+                         "zenith_binning",
                          "on_time_per_zd",              # 1D-Array of On-Time per ZenithDistance bin
                          "total_on_time",               # Total On-Time of the observation
                          "zenith_binning_on_time",      # Save the zenith binning used for On-Time calculation
@@ -98,6 +96,7 @@ class Spectrum:
                          "scaled_effective_area_err",   # scaled error of effective area error by On-Time per zenith bin
                          "differential_spectrum",       # 1D-Histogram, in energy of spectral points dN/dE
                          "differential_spectrum_err",   # 1D-Histogram, estimated error of spectral points
+
                          # Dict containing overall stats: number of on, off and excess events, 
                          # total on-time in hours, significance:
                          "stats"]
@@ -107,9 +106,7 @@ class Spectrum:
                  theta_sq=0.085,
                  correction_factors=False,
                  ebins=None,
-                 elabels=None,
                  zdbins=None,
-                 zdlabels=None,
                  ganymed_file_data=None,
                  ganymed_file_mc=None,
                  list_of_ceres_files=None,
@@ -129,21 +126,12 @@ class Spectrum:
         if ebins:
             self.energy_binning = ebins
         else:
-                self.energy_binning = np.logspace(np.log10(200.0), np.log10(50000.0), 9)
+            self.energy_binning = np.logspace(np.log10(200.0), np.log10(50000.0), 9)
         if zdbins:
             self.zenith_binning = zdbins
         else:
             self.zenith_binning = np.linspace(0, 60, 15)
 
-        if elabels:
-            self.energy_labels = np.array(elabels)
-        else:
-            self.energy_labels = np.arange(len(self.energy_binning) - 1)
-
-        if zdlabels:
-            self.zenith_labels = np.array(zdlabels)
-        else:
-            self.zenith_labels = np.arange(len(self.zenith_binning) - 1)
         if ganymed_file_data:
             self.ganymed_file_data = ganymed_file_data
 
@@ -186,19 +174,11 @@ class Spectrum:
     # Define functions to set variables
     ##############################################################
 
-    def set_energy_binning(self, ebins, elabels=None):
+    def set_energy_binning(self, ebins):
         self.energy_binning = ebins
-        if elabels:
-            self.energy_labels = elabels
-        else:
-            self.energy_labels = np.arange(len(ebins)-1)
 
-    def set_zenith_binning(self, zdbins, zdlabels=None):
+    def set_zenith_binning(self, zdbins):
         self.zenith_binning = zdbins
-        if zdlabels:
-            self.zenith_labels = zdlabels
-        else:
-            self.zenith_labels = np.arange(len(zdbins) - 1)
 
     def set_theta_square(self, theta_square):
         self.theta_square = theta_square
@@ -312,8 +292,6 @@ class Spectrum:
         print(bin_edges_energy)
         self.energy_binning = np.array(np.sort(bin_edges_energy), dtype=np.float)
 
-        self.energy_labels = np.arange(len(self.energy_binning) - 1)
-
     ##############################################################
     # Define functions to read data and calculate spectra
     ##############################################################
@@ -330,7 +308,6 @@ class Spectrum:
             print('No list of star-files given, please provide one')
         self.on_time_per_zd = calc_on_time(self.run_list_star,
                                            self.zenith_binning,
-                                           self.zenith_labels,
                                            n_chunks=n_chunks,
                                            use_multiprocessing=use_multiprocessing)
         # Save binning to check if the binning has changed and the on time calculation skipped
@@ -354,9 +331,7 @@ class Spectrum:
             histos = histos_from_list_of_mars_files(self.run_list_star,
                                                     select_leaves,
                                                     self.zenith_binning,
-                                                    self.zenith_labels,
                                                     self.energy_binning,
-                                                    self.energy_labels,
                                                     self.theta_square)
         else:
             data_cut = read_mars(self.ganymed_file_data, leaf_names=select_leaves)
@@ -405,13 +380,13 @@ class Spectrum:
             analysed_ceres_ganymed = self.ganymed_file_mc
 
         self.effective_area, self.effective_area_err = calc_a_eff_parallel_hd5(self.energy_binning,
-                                                                                 self.zenith_binning,
-                                                                                 self.use_correction_factors,
-                                                                                 self.theta_square,
-                                                                                 path=analysed_ceres_ganymed,
-                                                                                 list_of_hdf_ceres_files=ceres_list,
-                                                                                 energy_function=energy_function,
-                                                                                 slope_goal=slope_goal)
+                                                                               self.zenith_binning,
+                                                                               self.use_correction_factors,
+                                                                               self.theta_square,
+                                                                               path=analysed_ceres_ganymed,
+                                                                               list_of_hdf_ceres_files=ceres_list,
+                                                                               energy_function=energy_function,
+                                                                               slope_goal=slope_goal)
         return self.effective_area, self.effective_area_err
 
     def calc_differential_spectrum(self, use_multiprocessing=True, efunc=None, slope_goal=None):

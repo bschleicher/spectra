@@ -24,12 +24,12 @@ def read_and_select_data(entry, tree_name, leafs, zdbinsr, ebinsr, thetasqr):
     return calc_onoffhisto(temp, zdbinsr, ebinsr, thetasqr)
 
 
-def histos_from_list_of_mars_files(file_list, leaf_names, zdbins, zdlabels, ebins, elabels, thetasq):
+def histos_from_list_of_mars_files(file_list, leaf_names, zdbins, ebins, thetasq):
     file_list = [entry.strip().replace(" ", "/").replace("star", "ganymed_run").replace("_I", "-summary") for entry in
                  file_list if not entry.startswith('#')]
     leaf_names.append('MHillas.fLength')
     leaf_names.append('MHillas.fWidth')
-    histos = np.zeros([2, len(zdlabels), len(elabels)])
+    histos = np.zeros([2, len(zdbins)-1, len(ebins)-1])
     pool = Pool()
     result = [pool.apply_async(read_and_select_data, args=(file_list[i], 'Events', leaf_names, zdbins,
                                                            ebins, thetasq)) for i in range(len(file_list))]
@@ -41,7 +41,13 @@ def histos_from_list_of_mars_files(file_list, leaf_names, zdbins, zdlabels, ebin
     return np.array(histos)
 
 
-def calc_onoffhisto(data, zdbins, ebins, thetasq, energy_function=None, slope_goal=None):
+def calc_onoffhisto(data,
+                    zdbins,
+                    ebins,
+                    thetasq,
+                    energy_function=None,
+                    slope_goal=None):
+
     if energy_function is None:
         def energy_function(x):
             return (np.power(29.65 * x["MHillas.fSize"],
