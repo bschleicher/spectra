@@ -46,7 +46,8 @@ def calc_onoffhisto(data,
                     ebins,
                     thetasq,
                     energy_function=None,
-                    slope_goal=None):
+                    slope_goal=None,
+                    energy_function2=None):
 
     if energy_function is None:
         def energy_function(x):
@@ -55,6 +56,9 @@ def calc_onoffhisto(data,
                     x["MNewImagePar.fLeakage2"] * 13000)
     data = data.dropna().copy()
     data = data.assign(energy=energy_function)
+    if energy_function2 is not None:
+        data = data.assign(energy2=energy_function2)
+
     on_histo = np.zeros([len(zdbins)-1, len(ebins)-1])
     off_histo = np.zeros([len(zdbins)-1, len(ebins)-1])
 
@@ -87,6 +91,12 @@ def calc_onoffhisto(data,
                                        bins=[zdbins, ebins],
                                        weights=weights_off)[0]
 
+            if energy_function2 is not None:
+                energy_migration = np.histogramdd((on_data["MPointingPos.fZd"].values,
+                                                   on_data["energy2"].values,
+                                                   on_data["energy"].values),
+                                                   bins=(zdbins, ebins, ebins))
+
             on_thetasq = np.histogram(data.groupby("DataType.fVal").get_group(1.0)["ThetaSquared.fVal"],
                                       bins=40, range=(0.0, 0.3))
             off_thetasq = np.histogram(data.groupby("DataType.fVal").get_group(0.0)["ThetaSquared.fVal"],
@@ -94,4 +104,6 @@ def calc_onoffhisto(data,
         except:
             on_histo = np.zeros([len(zdbins)-1, len(ebins)-1])
             off_histo = np.zeros([len(zdbins)-1, len(ebins)-1])
+    if energy_function2 is not None:
+        return np.array([on_histo, off_histo]), [on_thetasq, off_thetasq], energy_migration[0]
     return np.array([on_histo, off_histo]), [on_thetasq, off_thetasq]
