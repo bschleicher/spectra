@@ -53,7 +53,7 @@ def check_list(input_list):
     return input_list
 
 
-def check_txt_or_directory(directory_or_file, comment_defect_lines=False):
+def check_txt_or_directory(directory_or_file, comment_defect_lines=True):
 
     if directory_or_file.endswith(".txt"):
         check_txt(directory_or_file, comment_defect_lines)
@@ -81,6 +81,7 @@ if __name__ == '__main__':
     p.add_argument("directory_or_file", help="Directory or txt containing one root file per line")
     p.add_argument("-c", "--comment_defect_lines",
                    default=False,
+                   type=bool,
                    help="If true, comment out the line of the defect or missing root files in a txt ")
     args = p.parse_args()
 
