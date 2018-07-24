@@ -96,7 +96,7 @@ def plot_spectrum(bin_centers,
 
 
 def plot_theta(thetasquare_binning, thetasquare_on, thetasquare_off, thetasq_cut, stats=None, filename=None):
-    fig = plt.figure("ThetaSqare")
+    fig = plt.figure()
     ax = plt.subplot()
     ax.errorbar(x=(thetasquare_binning[1:]+thetasquare_binning[0:-1])/2,
                 y=thetasquare_on,
