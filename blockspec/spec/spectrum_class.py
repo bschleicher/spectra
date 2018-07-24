@@ -56,7 +56,11 @@ def load_variables_from_json(self, filename):
             setattr(self, variable_name, containing)
 
         else:
-            raise KeyError('Key not in list of variables')
+            print("Key", variable_name, "not in list of variables.")
+            if variable_name in ["energy_labels", "zenith_labels"]:
+                pass
+            else:
+                raise KeyError('Key not in list of variables')
 
 
 class Spectrum:
@@ -94,6 +98,8 @@ class Spectrum:
                          "effective_area_err",          # 2D-Histogram in Energy:ZenithDistance of Error of A_eff
                          "scaled_effective_area",       # effective_area scaled by On-Time per zenith bin
                          "scaled_effective_area_err",   # scaled error of effective area error by On-Time per zenith bin
+                         "energy_migration",     # 3D-Histogram in EnergyMC:Energy:ZenithDistance of surviving MC events
+                         "scaled_energy_migration",     # energy migration scaled by On-Time per zenith bin
                          "differential_spectrum",       # 1D-Histogram, in energy of spectral points dN/dE
                          "differential_spectrum_err",   # 1D-Histogram, estimated error of spectral points
 
@@ -164,6 +170,8 @@ class Spectrum:
         self.effective_area_err = None
         self.scaled_effective_area = None
         self.scaled_effective_area_err = None
+        self.energy_migration = None
+        self.scaled_energy_migration = None
 
         self.differential_spectrum = None
         self.differential_spectrum_err = None
@@ -313,6 +321,7 @@ class Spectrum:
         # Save binning to check if the binning has changed and the on time calculation skipped
         self.zenith_binning_on_time = self.zenith_binning
         self.total_on_time = np.sum(self.on_time_per_zd)
+        print("On Time per ZD:", self.on_time_per_zd)
         return self.on_time_per_zd
 
     def calc_on_off_histo(self, ganymed_file=None, energy_function=None):
@@ -379,14 +388,17 @@ class Spectrum:
         if not analysed_ceres_ganymed:
             analysed_ceres_ganymed = self.ganymed_file_mc
 
-        self.effective_area, self.effective_area_err = calc_a_eff_parallel_hd5(self.energy_binning,
-                                                                               self.zenith_binning,
-                                                                               self.use_correction_factors,
-                                                                               self.theta_square,
-                                                                               path=analysed_ceres_ganymed,
-                                                                               list_of_hdf_ceres_files=ceres_list,
-                                                                               energy_function=energy_function,
-                                                                               slope_goal=slope_goal)
+        areas = calc_a_eff_parallel_hd5(self.energy_binning,
+                                        self.zenith_binning,
+                                        self.use_correction_factors,
+                                        self.theta_square,
+                                        path=analysed_ceres_ganymed,
+                                        list_of_hdf_ceres_files=ceres_list,
+                                        energy_function=energy_function,
+                                        slope_goal=slope_goal,
+                                        impact_max=54000.0)
+
+        self.effective_area, self.effective_area_err, self.energy_migration = areas
         return self.effective_area, self.effective_area_err
 
     def calc_differential_spectrum(self, use_multiprocessing=True, efunc=None, slope_goal=None):

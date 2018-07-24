@@ -73,7 +73,8 @@ def calc_a_eff_parallel_hd5(ebins,
                             path="/home/guest/mblank/",
                             list_of_hdf_ceres_files="/home/michi/read_mars/ceres_part",
                             energy_function=None,
-                            slope_goal=None):
+                            slope_goal=None,
+                            impact_max=54000.0):
 
     leafs = ["DataType.fVal",
              "MPointingPos.fZd",
@@ -92,17 +93,23 @@ def calc_a_eff_parallel_hd5(ebins,
 
     df = read_mars(path, leaf_names=leafs)
 
-    if not use_correction_factors:
-        def energy_function(x):
-            return x["MMcEvt.MMcEvtBasic.fEnergy"]
 
-    hist, theta = calc_onoffhisto(df,
-                                  zdbins,
-                                  ebins,
-                                  theta_square_cut,
-                                  energy_function=energy_function,
-                                  slope_goal=slope_goal)
-    n_surviving = hist[0]
+    def energy_mc(x):
+        return x["MMcEvt.MMcEvtBasic.fEnergy"]
+
+
+    hist, theta, energy_migration = calc_onoffhisto(df,
+                                                    zdbins,
+                                                    ebins,
+                                                    theta_square_cut,
+                                                    energy_function=energy_function,
+                                                    slope_goal=slope_goal,
+                                                    energy_function2=energy_mc)
+    if use_correction_factors:
+        axis = 2
+    else:
+        axis = 1
+    n_surviving = np.sum(energy_migration, axis=axis)
 
     """
     theta_square_cut = str(theta_square_cut)
@@ -132,13 +139,13 @@ def calc_a_eff_parallel_hd5(ebins,
 
     n_mc = calc_num_mc_entries_hd5(ebins, zdbins, list_of_hdf_ceres_files, slope_goal=slope_goal)
 
-    a_eff = np.divide(n_surviving, n_mc) * (np.pi * (54000.0 * 54000.0))
+    a_eff = np.divide(n_surviving, n_mc) * (np.pi * (impact_max**2))
 
     a_eff_err = a_eff * np.sqrt(np.ma.divide(1, n_surviving) + np.ma.divide(1, n_mc))
 
     print("--------- Returning the effective area.")
 
-    return a_eff, a_eff_err
+    return a_eff, a_eff_err, energy_migration
 
 
 def calc_a_eff_parallel(ebins,
