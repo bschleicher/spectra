@@ -89,12 +89,13 @@ def blocks_from_df(timecut, prior=5.1):
     return makeblocks(timecut.time_mean.values, timecut.excess_rate.values, timecut.excess_rate_err.values, prior)
 
 
-def plot_dataframe(timecut, source):
+def plot_dataframe(timecut, source, alpha=0.6):
     plt.errorbar(x=timecut.time_mean.values,
                  y=timecut.excess_rate.values,
                  yerr=timecut.excess_rate_err.values,
                  fmt=".",
-                 label=source)
+                 label=source,
+                 alpha=alpha)
 
 
 def plot_dataframe_as_block(timecut):
@@ -125,6 +126,7 @@ def plot_blocks(timecut, blocks, prior):
     s_cp = blocks[4]
     s_amplitudes = blocks[5]
     s_amplitudes_err = blocks[6]
+    plt.plot(timecut.time_mean.iloc[s_cp].values, s_amplitudes, "green")
     plt.fill_between(timecut.time_mean.iloc[s_cp].values,
                      s_amplitudes-s_amplitudes_err,
                      s_amplitudes+s_amplitudes_err,
@@ -136,7 +138,7 @@ def plot_blocks(timecut, blocks, prior):
 
 def plot_nightly(timecut, blocks=None, prior=None, source='Fact-Source', as_block=False):
     plt.figure()
-    plot_dataframe(timecut, source)
+    plot_dataframe(timecut, source, alpha=0.6)
 
     if as_block:
         plot_dataframe_as_block(blocks)
