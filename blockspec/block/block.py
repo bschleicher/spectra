@@ -34,6 +34,11 @@ def line(x, a, b):
 def notlog(x, a, b):
     return np.power(10, line(np.log10(x), a, b))
 
+def blocks_from_json(filename):
+    blocks=BlockAnalysis()
+    blocks.load(filename)
+    return blocks
+
 
 class BlockAnalysis(Sequence):
 
@@ -46,6 +51,8 @@ class BlockAnalysis(Sequence):
                          "source_name",
                          "source_ra",
                          "source_deg",
+                         "fitvalues",
+                         "fitvalues2",
                          "tfitvalues",
                          "tfitvalues2"]
 
@@ -61,23 +68,47 @@ class BlockAnalysis(Sequence):
 
         super().__init__()
         self.ceres_list = ceres_list
+        print("List of ceres lists:", self.ceres_list)
+
         self.ganymed_mc = ganymed_mc
+        print("Ganymed File of analyzed MC:", self.ganymed_mc)
+
         self.basepath = basepath
+        print("Basepath of block analysis:", self.basepath)
+
         self.ganymed_path = ganymed_path
+        print("Ganymed File of analyzed data:", self.ganymed_path)
+
         self.mars_directory = mars_directory
+        print("Mars Directory:", self.mars_directory)
+
         self.spectrum_path = basepath + spec_identifier
+        print("Saving spectra to prefix", self.spectrum_path)
 
         self.source_name = source_name
         source = SkyCoord.from_name(self.source_name)
         self.source_ra = source.ra.hour
         self.source_deg = source.dec.deg
 
-        self.mapping = self.load_mapping()
-        if self.mapping:
-            self.calc_mapping_columns()
+        print("Source:", self.source_name)
+        print("    Ra:", self.source_ra)
+        print("    Dec:", self.source_deg)
+
+        self.load_mapping()
 
         self.spectra = []
+        self.spectral_data = []
 
+        if self.mapping is not None:
+            try:
+                print("Trying to load spectral data.")
+                self.load_spectral_data()
+                print("Loading spectral data succeeded.")
+            except:
+                print("Loading spectral data failed.")
+
+        self.fitvalues = []
+        self.fitvalues2 = []
         self.tfitvalues = []
         self.tfitvalues2 = []
 
@@ -89,7 +120,7 @@ class BlockAnalysis(Sequence):
 
     def save(self, filename):
         save_variables_to_json(self, filename)
-        self.mapping.to_json(self.basepath + "block/mapping.json")
+        self.mapping.to_json(self.basepath + "blocks/mapping.json")
 
     def load(self, filename):
         load_variables_from_json(self, filename)
@@ -98,13 +129,25 @@ class BlockAnalysis(Sequence):
 
     def load_mapping(self):
         try:
-            self.mapping = pd.read_json(self.basepath + "block/mapping.json")
+            mapping = pd.read_json(self.basepath + "blocks/mapping.json")
+            print("Mapping succesfully read.")
+
         except ValueError:
             print("Mapping file does not yet exist.")
-            self.mapping = None
+            mapping = None
+        self.mapping = mapping
+        if self.mapping is not None:
+            self.calc_mapping_columns()
 
-    def run_spectra(self, theta_sq=0.04, efunc=None, correction_factors=False, optimize_theta=False):
-        for element in self.mapping.itertuples():
+    def run_spectra(self,
+                    theta_sq=0.04,
+                    efunc=None,
+                    correction_factors=False,
+                    optimize_theta=False,
+                    start=None,
+                    stop=None,
+                    force=False):
+        for element in self.mapping.iloc[start:stop].itertuples():
             block_number = element[0]
             filepath = element[1]
             star_files = [filepath]
@@ -114,24 +157,32 @@ class BlockAnalysis(Sequence):
 
             ganymed_result = self.basepath + str(block_number) + "-analysis.root"
 
+            path = self.spectrum_path + str(block_number) + ".json"
+
             spectrum = Spectrum(run_list_star=star_list,
                                 ganymed_file_data=ganymed_result,
                                 list_of_ceres_files=self.ceres_list,
                                 ganymed_file_mc=self.ganymed_mc,
                                 theta_sq=theta_sq)
 
-            spectrum.set_correction_factors(correction_factors)
-            if optimize_theta:
-                spectrum.optimize_theta()
+            try:
+                spectrum.load(path)
+                calc = False
+            except:
+                calc= True
 
-            spectrum.optimize_ebinning(sigma_threshold=1.3, min_counts_per_bin=10)
-            # spectrum.set_energy_binning(np.logspace(np.log10(200), np.log10(50000), 10))
+            if force or calc:
+                spectrum.set_correction_factors(correction_factors)
+                if optimize_theta:
+                    spectrum.optimize_theta()
 
-            spectrum.calc_differential_spectrum(efunc=efunc)
+                spectrum.optimize_ebinning(sigma_threshold=1.3, min_counts_per_bin=10)
+                # spectrum.set_energy_binning(np.logspace(np.log10(200), np.log10(50000), 10))
 
-            path = self.spectrum_path + str(block_number) + ".json"
-            spectrum.save(path)
-            self.spectra.append(spectrum)
+                spectrum.calc_differential_spectrum(efunc=efunc)
+
+                spectrum.save(path)
+                self.spectra.append(spectrum)
 
     def run_ganymed(self, index, path):
         outfile = self.basepath + str(index)
@@ -144,7 +195,7 @@ class BlockAnalysis(Sequence):
         if multiprocessing:
             pool = mp.Pool()
             result = [pool.apply_async(self.run_ganymed, args=(element[0], element[1]))
-                      for element in self.mapping.iloc[start:stop].tertuples()]
+                      for element in self.mapping.iloc[start:stop].itertuples()]
             pool.close()
             pool.join()
         else:
@@ -152,13 +203,15 @@ class BlockAnalysis(Sequence):
                 self.run_ganymed(element[0], element[1])
 
     def calc_mapping_columns(self):
-        self.mapping.sort_index(inplace=True)
-        start = pd.to_datetime(self.mapping.start, unit="ms")
-        stop = pd.to_datetime(self.mapping.stop, unit="ms")
-        self.mapping["start"] = start
-        self.mapping["stop"] = stop
-        self.mapping["time_err"] = (stop - start)/2
-        self.mapping["time"] = self.mapping.start + self.mapping.time_err
+        mapping = self.mapping.copy()
+        mapping.sort_index(inplace=True)
+        start = pd.to_datetime(mapping.start, unit="ms")
+        stop = pd.to_datetime(mapping.stop, unit="ms")
+        mapping["start"] = start
+        mapping["stop"] = stop
+        mapping["time_err"] = (stop - start)/2
+        mapping["time"] = mapping.start + mapping.time_err
+        self.mapping = mapping.copy()
 
 
     def load_spectral_data(self, start=None, stop=None):
@@ -167,7 +220,9 @@ class BlockAnalysis(Sequence):
         for element in self.mapping.iloc[start:stop].itertuples():
             block_number = element[0]
             spect = Spectrum()
-            spect.load(self.spectrum_path + str(block_number) + ".json")
+            path = self.spectrum_path + str(block_number) + ".json"
+            print("Trying to load", path)
+            spect.load(path)
             self.spectra.append(spect)
             with open(self.spectrum_path + str(block_number) + ".json") as infile:
                 data = json.load(infile)
@@ -197,7 +252,7 @@ class BlockAnalysis(Sequence):
         for block_number in range(0, len(self.spectral_data)):
             selection = self.spectral_data[block_number]["energy_center"] > 700
             x = self.spectral_data[block_number]["energy_center"][selection][1:-2]
-            if len(x) > 1:
+            if len(x) > 2:
                 y = self.spectral_data[block_number]["differential_spectrum"][selection][1:-2]
                 popt, pcov = curve_fit(exp_pow, xdata=x, ydata=y, p0=[3 * 10 ** (-11), 2.6, 0.24])
                 pcov = np.sqrt(np.diag(pcov))
@@ -206,7 +261,14 @@ class BlockAnalysis(Sequence):
                 fitvalues.append([block_number, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
         fitvalues = np.array(fitvalues)
 
-        high_bin = -2
+
+        def line(x, a, b):
+            return a - b * x
+
+        def notlog(x, a, b):
+            return np.power(10, line(np.log10(x), a, b))
+
+        high_bin = -1
         pcovs = []
         fitvalues2 = []
         for block_number in tqdm(range(0, len(self.spectral_data))):
@@ -215,7 +277,7 @@ class BlockAnalysis(Sequence):
                 self.spectral_data[block_number]["significance_histo"] > 1.3)
             x = np.log10(self.spectral_data[block_number]["energy_center"][selection][:high_bin] / 1000)
             # print(x)
-            if len(x) > 3:
+            if len(x) > 2:
                 # print(spectral_data[block_number]["differential_spectrum"][selection][:high_bin])
                 y = np.log10(np.abs(self.spectral_data[block_number]["differential_spectrum"][selection][:high_bin]))
                 # print(y)
@@ -259,6 +321,13 @@ class BlockAnalysis(Sequence):
         self.tfitvalues = fitvalues.T
         self.tfitvalues2 = fitvalues2.T
 
+        # if there is - for some reason - no spectral data for the last blocks, fill the missing fitvalues with nan:
+        if len(self.mapping) > len(self.tfitvalues2):
+            fillnans = np.full((self.tfitvalues2.shape[0], len(self.mapping) - self.tfitvalues.shape[1]),
+                               np.nan)
+
+            self.tfitvalues2 = np.concatenate((self.tfitvalues2, fillnans), axis=1)
+            self.tfitvalues = np.concatenate((self.tfitvalues, fillnans[:self.tfitvalues.shape[0],:]), axis=1)
 
         self.mapping["photon_index"] = self.tfitvalues2[2]
         self.mapping["photon_index_err"] = self.tfitvalues2[5]
@@ -275,12 +344,22 @@ class BlockAnalysis(Sequence):
         self.mapping["flux5up"] = self.tfitvalues2[12] - self.mapping.flux5
         self.mapping["flux5low"] = self.mapping.flux5 - self.tfitvalues2[10]
 
+    def plot_fluxes(self, name=None):
 
-    def plot_fluxes(self, name="forest_fluxes.pdf"):
+        if not self.check_for_data():
+            return 0
 
-        from matplotlib.backends.backend_pdf import PdfPages
+        if len(self.fitvalues) < 1:
+            print("No fitvalues present, please run BlockAnalysis.run_fits()")
+            return 0
 
-        pp = PdfPages(name)
+        if name is not None:
+            to_pdf = True
+            from matplotlib.backends.backend_pdf import PdfPages
+            pp = PdfPages(name)
+        else:
+            to_pdf = False
+
         for block_number in range(len(self.spectral_data)):
 
             self.spectra[block_number].plot_flux(crab_do=True,
@@ -303,21 +382,53 @@ class BlockAnalysis(Sequence):
                 plt.legend()
                 plt.tight_layout()
                 # plt.savefig("/home/michi/mrk501/"+str(block_number)+"-flux.pdf", format="pdf")
-                pp.savefig()
+                if to_pdf:
+                    pp.savefig()
 
-        pp.close()
+        if to_pdf:
+            pp.close()
         plt.show()
 
-    def plot_thetasq(self, name='thetasq.pdf'):
+    def check_for_data(self):
+        if len(self.spectra) > 0:
+            "Spectra present."
+            spectra  = True
+        else:
+            print("No spectral data present, please execute the spectra calculation via BlockAnalysis.run_spectra().")
+            spectra = False
+        if len(self.spectral_data) > 0:
+            "Spectral fit data present"
+            spectral_data = True
+        else:
+            print("Fit data missing, please execute BlockAnalysis.run_fits()")
+            spectral_data = False
 
-        from matplotlib.backends.backend_pdf import PdfPages
+        if (spectra & spectral_data):
+            return True
+        else:
+            return False
 
-        pp = PdfPages(name)
+    def plot_thetasq(self, name=None):
+
+        if not self.check_for_data():
+            return 0
+
+        if name is not None:
+            to_pdf = True
+            from matplotlib.backends.backend_pdf import PdfPages
+            pp = PdfPages(name)
+        else:
+            to_pdf = False
+
         for block_number in range(len(self.spectral_data)):
+            #plt.figure()
             self.spectra[block_number].plot_thetasq()
             plt.title(str(block_number) + ": " + self.mapping.time[block_number].strftime("%Y-%m-%d %H:%M"))
-            pp.savefig()
-        pp.close()
+            if to_pdf:
+                pp.savefig()
+
+        if to_pdf:
+            pp.close()
         plt.show()
 
     def plot_all_spectra(self):
