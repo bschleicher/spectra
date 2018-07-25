@@ -7,6 +7,7 @@ from subprocess import run
 from os import remove
 import multiprocessing as mp
 from astropy.coordinates import SkyCoord
+from astropy.coordinates.name_resolve import NameResolveError
 
 from blockspec.spec import Spectrum
 from blockspec.spec.plotting import plot_spectrum
@@ -34,8 +35,9 @@ def line(x, a, b):
 def notlog(x, a, b):
     return np.power(10, line(np.log10(x), a, b))
 
+
 def blocks_from_json(filename):
-    blocks=BlockAnalysis()
+    blocks = BlockAnalysis()
     blocks.load(filename)
     return blocks
 
@@ -63,7 +65,7 @@ class BlockAnalysis(Sequence):
                  ganymed_path="/media/michi/523E69793E69574F/gamma/ganymed.C",
                  mars_directory="/home/michi/Mars/",
                  spec_identifier="forest2_",
-                 source_name="Crab",
+                 source_name=None,
                  ):
 
         super().__init__()
@@ -86,31 +88,40 @@ class BlockAnalysis(Sequence):
         print("Saving spectra to prefix", self.spectrum_path)
 
         self.source_name = source_name
-        source = SkyCoord.from_name(self.source_name)
-        self.source_ra = source.ra.hour
-        self.source_deg = source.dec.deg
+
+        self.source_ra = None
+        self.source_deg = None
+
+        if source_name:
+            try:
+                source = SkyCoord.from_name(self.source_name)
+                self.source_ra = source.ra.hour
+                self.source_deg = source.dec.deg
+            except NameResolveError:
+                print("Temporary failure in name resolution, initializing source coordinates with None")
 
         print("Source:", self.source_name)
         print("    Ra:", self.source_ra)
         print("    Dec:", self.source_deg)
 
+        self.mapping = None
         self.load_mapping()
 
         self.spectra = []
         self.spectral_data = []
+
+        self.fitvalues = []
+        self.fitvalues2 = []
+        self.tfitvalues = []
+        self.tfitvalues2 = []
 
         if self.mapping is not None:
             try:
                 print("Trying to load spectral data.")
                 self.load_spectral_data()
                 print("Loading spectral data succeeded.")
-            except:
-                print("Loading spectral data failed.")
-
-        self.fitvalues = []
-        self.fitvalues2 = []
-        self.tfitvalues = []
-        self.tfitvalues2 = []
+            except FileNotFoundError:
+                print("Loading spectral data failed. File not found.")
 
     def __getitem__(self, i):
         return self.mapping.iloc[i], self.spectra[i]
@@ -120,7 +131,7 @@ class BlockAnalysis(Sequence):
 
     def save(self, filename):
         save_variables_to_json(self, filename)
-        self.mapping.to_json(self.basepath + "blocks/mapping.json")
+        self.mapping.to_json(self.basepath + "blocks/mapping.json", double_precision=15)
 
     def load(self, filename):
         load_variables_from_json(self, filename)
@@ -129,13 +140,12 @@ class BlockAnalysis(Sequence):
 
     def load_mapping(self):
         try:
-            mapping = pd.read_json(self.basepath + "blocks/mapping.json")
+            self.mapping = pd.read_json(self.basepath + "blocks/mapping.json", precise_float=True)
             print("Mapping succesfully read.")
 
         except ValueError:
             print("Mapping file does not yet exist.")
-            mapping = None
-        self.mapping = mapping
+
         if self.mapping is not None:
             self.calc_mapping_columns()
 
@@ -147,6 +157,12 @@ class BlockAnalysis(Sequence):
                     start=None,
                     stop=None,
                     force=False):
+
+        if "has_data" in self.mapping.columns:
+            has_data = self.mapping["has_data"].values
+        else:
+            has_data = np.full(len(self.mapping), False)
+
         for element in self.mapping.iloc[start:stop].itertuples():
             block_number = element[0]
             filepath = element[1]
@@ -168,21 +184,33 @@ class BlockAnalysis(Sequence):
             try:
                 spectrum.load(path)
                 calc = False
-            except:
-                calc= True
+            except FileNotFoundError:
+                calc = True
 
             if force or calc:
                 spectrum.set_correction_factors(correction_factors)
-                if optimize_theta:
-                    spectrum.optimize_theta()
 
-                spectrum.optimize_ebinning(sigma_threshold=1.3, min_counts_per_bin=10)
-                # spectrum.set_energy_binning(np.logspace(np.log10(200), np.log10(50000), 10))
+                print("Trying to calculate spectrum for block", block_number)
 
-                spectrum.calc_differential_spectrum(efunc=efunc)
+                try:
+                    if optimize_theta:
+                        spectrum.optimize_theta()
 
-                spectrum.save(path)
-                self.spectra.append(spectrum)
+                    spectrum.optimize_ebinning(sigma_threshold=1.3, min_counts_per_bin=10)
+                    # spectrum.set_energy_binning(np.logspace(np.log10(200), np.log10(50000), 10))
+
+                    spectrum.calc_differential_spectrum(efunc=efunc, force_calc=force)
+
+                    spectrum.save(path)
+                    self.spectra.append(spectrum)
+                    has_data[block_number] = True
+
+                except AttributeError as err:
+                    print(err)
+                    print("Please check if there is any star file in block", block_number)
+                    has_data[block_number] = False
+
+        self.mapping["has_data"] = has_data
 
     def run_ganymed(self, index, path):
         outfile = self.basepath + str(index)
@@ -213,11 +241,17 @@ class BlockAnalysis(Sequence):
         mapping["time"] = mapping.start + mapping.time_err
         self.mapping = mapping.copy()
 
-
     def load_spectral_data(self, start=None, stop=None):
         self.spectral_data = []
         self.spectra = []
-        for element in self.mapping.iloc[start:stop].itertuples():
+        if start or stop:
+            selection = self.mapping.iloc[start:stop].index.values
+        elif "has_data" in self.mapping.columns:
+            selection = self.mapping[self.mapping.has_data].index.values
+        else:
+            selection = self.mapping.index.values
+
+        for element in self.mapping.iloc[selection].itertuples():
             block_number = element[0]
             spect = Spectrum()
             path = self.spectrum_path + str(block_number) + ".json"
@@ -368,7 +402,7 @@ class BlockAnalysis(Sequence):
             x = np.logspace(np.log10(0.750), np.log10(50), 100)
             fit_select = self.fitvalues[:, 0] == block_number
             if fit_select.any():
-                if not np.isnan(self.tfitvalues2[2][block_number]):
+                if not np.isnan(self.mapping["photon_index"][block_number]):
                     # plt.plot(x, exp_pow(x, *fitvalues[fit_select][0,1:3]), label="Exponential Fit")
                     # plt.plot(x, exp_pow(x, fitvalues[fit_select][0][1], fitvalues[fit_select][0][2]+0.5), label="Fit +0.5")
                     # plt.plot(x, exp_pow(x, fitvalues[fit_select][0][1], fitvalues[fit_select][0][2]-0.5), label="Fit -0.5")
