@@ -306,13 +306,13 @@ class Spectrum:
 
     def calc_ontime(self, data=None, n_chunks=8, use_multiprocessing=True, force_calc=False):
         if self.on_time_per_zd is not None:
-            if (not force_calc) or (self.zenith_binning == self.zenith_binning_on_time):
+            if (not force_calc) and np.array_equal(self.zenith_binning, self.zenith_binning_on_time):
                 print("Skipping on-time calculation, because zenith binning has not changed.")
                 return self.on_time_per_zd
 
-        if data:
+        if data is not None:
             self.run_list_star = data
-        if not self.run_list_star:
+        if self.run_list_star is None:
             print('No list of star-files given, please provide one')
         self.on_time_per_zd = calc_on_time(self.run_list_star,
                                            self.zenith_binning,
@@ -401,15 +401,15 @@ class Spectrum:
         self.effective_area, self.effective_area_err, self.energy_migration = areas
         return self.effective_area, self.effective_area_err
 
-    def calc_differential_spectrum(self, use_multiprocessing=True, efunc=None, slope_goal=None):
+    def calc_differential_spectrum(self, use_multiprocessing=True, efunc=None, slope_goal=None, force_calc=False):
 
-        if not self.on_time_per_zd:
-            self.calc_ontime(use_multiprocessing=use_multiprocessing)
+        if (self.on_time_per_zd is None) or force_calc:
+            self.calc_ontime(use_multiprocessing=use_multiprocessing, force_calc=force_calc)
 
-        if not self.on_histo:
+        if (self.on_histo is None) or force_calc:
             self.calc_on_off_histo(energy_function=efunc)
 
-        if not self.effective_area:
+        if (self.effective_area is None) or force_calc:
             self.calc_effective_area(slope_goal=slope_goal, energy_function=efunc)
 
         bin_centers = np.power(10, (np.log10(self.energy_binning[1:]) + np.log10(self.energy_binning[:-1])) / 2)

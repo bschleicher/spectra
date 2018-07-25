@@ -20,6 +20,7 @@ star_files = ["/media/michi/523E69793E69574F/daten/Mrk501/blocks/20140623__20140
 #star_files = ["/media/michi/523E69793E69574F/daten/mrk501.txt"]
 #star_files= ["/media/michi/523E69793E69574F/daten/Crab/blocks/20160225_20180124.txt"]
 #star_files= ["/media/michi/523E69793E69574F/daten/Crab/blocks/20140820_20141001.txt"]
+
 star_list = []
 for entry in star_files:
     star_list += list(open(entry, "r"))
@@ -88,18 +89,20 @@ def forest_energy(gamma_on):
     predicted = clf.predict(X)
     return predicted
 
-spectrum.set_theta_square(0.1)
-#spectrum.optimize_theta()
-#spectrum.optimize_ebinning(min_counts_per_bin=10, sigma_threshold=5)
-spectrum.set_energy_binning(np.logspace(np.log10(200), np.log10(50000), 12))
+spectrum.set_theta_square(0.04)
+spectrum.optimize_theta()
+spectrum.optimize_ebinning(min_counts_per_bin=10, sigma_threshold=1.3)
+#spectrum.set_energy_binning(np.logspace(np.log10(200), np.log10(50000), 12))
+spectrum.set_zenith_binning(np.linspace(0, 60, 15))
 spectrum.set_correction_factors(False)
-spectrum.calc_differential_spectrum(use_multiprocessing=True,
+spec = spectrum.calc_differential_spectrum(use_multiprocessing=True,
                                     efunc=forest_energy_impact,
                                     #slope_goal=0.3
                                     )
+print(spec)
+print(spectrum.energy_migration)
 
-
-spectrum.plot_flux(crab_magic=True)
+spectrum.plot_flux(crab_magic=True, hess_flare=True)
 spectrum.plot_thetasq()
 path = "/media/michi/523E69793E69574F/xy.json"
 spectrum.save(path)
