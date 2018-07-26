@@ -8,10 +8,12 @@ from os import remove
 import multiprocessing as mp
 from astropy.coordinates import SkyCoord
 from astropy.coordinates.name_resolve import NameResolveError
+import corner
 
 from blockspec.spec import Spectrum
 from blockspec.spec.plotting import plot_spectrum
 from blockspec.spec.spectrum_class import load_variables_from_json, save_variables_to_json
+from blockspec.block.fitting import fit_ll
 
 import matplotlib.pyplot as plt
 
@@ -377,6 +379,52 @@ class BlockAnalysis(Sequence):
         self.mapping["flux5"] = self.tfitvalues2[11]
         self.mapping["flux5up"] = self.tfitvalues2[12] - self.mapping.flux5
         self.mapping["flux5low"] = self.mapping.flux5 - self.tfitvalues2[10]
+
+    def fit_loglike(self, **kwargs):
+
+        paramvalues = []
+        ll_dicts = []
+        for i, spect in enumerate(self.spectra):
+            block_number = self.mapping[self.mapping["has_data"]].index.values[i]
+            print("################################################################")
+            print("block number", str(block_number))
+            print("################################")
+            ll_dict = fit_ll(spect, **kwargs)
+            ll_dicts.append(ll_dict)
+            paramvalues.append(ll_dict["parameters"])
+        paramvalues = np.array(paramvalues).T
+
+        self.ll_dicts = ll_dicts
+
+        if len(self.mapping) > len(paramvalues)/2:
+            fillnans = np.full((paramvalues.shape[0], paramvalues.shape[1],len(self.mapping) - paramvalues.shape[2]),
+                               np.nan)
+
+            paramvalues = np.concatenate((paramvalues, fillnans), axis=2)
+
+
+        self.mapping["ll_flux"] = paramvalues[0,0,:]
+        self.mapping["ll_flux_low"] = paramvalues[1,0,:]
+        self.mapping["ll_flux_up"] = paramvalues[2,0,:]
+        self.mapping["ll_index"] = paramvalues[0,1,:]
+        self.mapping["ll_index_low"] = paramvalues[1,1,:]
+        self.mapping["ll_index_up"] = paramvalues[2,1,:]
+
+
+
+    def plot_ll_corner(self, name_prefix=None):
+        for i in range(len(self.ll_dicts)):
+            entry = self.ll_dicts[i]
+            block_number = self.mapping[self.mapping["has_data"]].index.values[i]
+            samples = entry["samples"][:, 150:, :].reshape((-1, len(entry["labels"])))
+            plt.figure()
+            corner.corner(samples,
+                          labels=entry["labels"],
+                          quantiles=[0.16, 0.5, 0.84],
+                          show_titles=True,
+                          title_kwargs={"fontsize": 12})
+            if name_prefix is not None:
+                plt.savefig(self.basepath + name_prefix + str(block_number) + ".png")
 
     def plot_fluxes(self, name=None):
 
