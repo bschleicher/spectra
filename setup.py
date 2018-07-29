@@ -11,5 +11,7 @@ setup(
     install_requires=[
         'pyfact',
         'tqdm',
+        'emcee',
+        'corner'
     ]
 )

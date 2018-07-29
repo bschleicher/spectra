@@ -9,7 +9,9 @@ if result != 0:
     )
 
 
-def check_file(entry):
+def check_file(entry, trees=None):
+    if trees is None:
+        trees = ["Events", "Drive", "Rates"]
     try:
         file = ROOT.TFile(entry)
         print("    File:", entry)
@@ -71,7 +73,6 @@ def check_txt_or_directory(directory_or_file, comment_defect_lines=True):
 
 if __name__ == '__main__':
 
-    trees = ["Events", "Drive", "Rates"]
     defect_list = []
     few_entries_list = []
 
