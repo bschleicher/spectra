@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 def confidence(popt, pcov, conf_low=16, conf_up=84):
     sample = np.random.multivariate_normal(popt, pcov, 10000)
     x3 = np.logspace(np.log10(0.750), np.log10(50), 100)
-    linepoints = np.power(10, line(np.log10(x3), popt[0], popt[1]))
+    # linepoints = np.power(10, line(np.log10(x3), popt[0], popt[1]))
     y3 = np.power(10, line(np.log10(x3)[:, np.newaxis], sample[:, 0], sample[:, 1]))
     low = np.percentile(y3, conf_low, axis=1)
     up = np.percentile(y3, conf_up, axis=1)
@@ -58,7 +58,8 @@ class BlockAnalysis(Sequence):
                          "fitvalues",
                          "fitvalues2",
                          "tfitvalues",
-                         "tfitvalues2"]
+                         "tfitvalues2",
+                         "ll_dicts"]
 
     def __init__(self,
                  ceres_list=["/home/michi/ceres.h5"],
@@ -117,6 +118,9 @@ class BlockAnalysis(Sequence):
         self.tfitvalues = []
         self.tfitvalues2 = []
 
+        self.ll_dicts = None
+        self.fit_results = None
+
         if self.mapping is not None:
             try:
                 print("Trying to load spectral data.")
@@ -134,11 +138,25 @@ class BlockAnalysis(Sequence):
     def save(self, filename):
         save_variables_to_json(self, filename)
         self.mapping.to_json(self.basepath + "blocks/mapping.json", double_precision=15)
+        if self.fit_results is not None:
+            self.fit_results.to_json(self.basepath + "blocks/fit_results.json", double_precision=15)
 
     def load(self, filename):
         load_variables_from_json(self, filename)
         self.load_mapping()
+        self.load_fits()
         self.load_spectral_data()
+
+    def load_fits(self):
+        try:
+            self.fit_results = pd.read_json(self.basepath + "blocks/fit_results.json", precise_float=True)
+            print("Fit results succesfully read.")
+
+        except ValueError:
+            print("File with fit results does not yet exist.")
+
+        if self.mapping is not None:
+            self.calc_mapping_columns()
 
     def load_mapping(self):
         try:
@@ -156,9 +174,11 @@ class BlockAnalysis(Sequence):
                     efunc=None,
                     correction_factors=False,
                     optimize_theta=False,
+                    optimize_ebinning=True,
                     start=None,
                     stop=None,
-                    force=False):
+                    force=False,
+                    **kwargs):
 
         if "has_data" in self.mapping.columns:
             has_data = self.mapping["has_data"].values
@@ -181,7 +201,8 @@ class BlockAnalysis(Sequence):
                                 ganymed_file_data=ganymed_result,
                                 list_of_ceres_files=self.ceres_list,
                                 ganymed_file_mc=self.ganymed_mc,
-                                theta_sq=theta_sq)
+                                theta_sq=theta_sq,
+                                **kwargs)
 
             try:
                 spectrum.load(path)
@@ -198,7 +219,8 @@ class BlockAnalysis(Sequence):
                     if optimize_theta:
                         spectrum.optimize_theta()
 
-                    spectrum.optimize_ebinning(sigma_threshold=1.3, min_counts_per_bin=10)
+                    if optimize_ebinning:
+                        spectrum.optimize_ebinning(sigma_threshold=1.3, min_counts_per_bin=10)
                     # spectrum.set_energy_binning(np.logspace(np.log10(200), np.log10(50000), 10))
 
                     spectrum.calc_differential_spectrum(efunc=efunc, force_calc=force)
@@ -220,6 +242,7 @@ class BlockAnalysis(Sequence):
             self.source_ra) + ", " + str(self.source_deg) + ")'"
         run(execute, cwd=self.mars_directory, shell=True)
         remove(outfile + "-summary.root")
+        return True
 
     def execute_ganymeds(self, multiprocessing=True, start=None, stop=None):
         if multiprocessing:
@@ -380,51 +403,77 @@ class BlockAnalysis(Sequence):
         self.mapping["flux5up"] = self.tfitvalues2[12] - self.mapping.flux5
         self.mapping["flux5low"] = self.mapping.flux5 - self.tfitvalues2[10]
 
-    def fit_loglike(self, **kwargs):
+    def fit_loglike(self, name="ll_powerlaw", **kwargs):
 
+        block_numbers = []
         paramvalues = []
         ll_dicts = []
         for i, spect in enumerate(self.spectra):
             block_number = self.mapping[self.mapping["has_data"]].index.values[i]
+            block_numbers.append(block_number)
             print("################################################################")
             print("block number", str(block_number))
             print("################################")
             ll_dict = fit_ll(spect, **kwargs)
             ll_dicts.append(ll_dict)
             paramvalues.append(ll_dict["parameters"])
-        paramvalues = np.array(paramvalues).T
+
 
         self.ll_dicts = ll_dicts
+        block_numbers = np.array(block_numbers)
+        params = np.array(paramvalues)
+        reshaped = params.reshape(params.shape[0], params.shape[1] * params.shape[2])
 
-        if len(self.mapping) > len(paramvalues)/2:
-            fillnans = np.full((paramvalues.shape[0], paramvalues.shape[1],len(self.mapping) - paramvalues.shape[2]),
-                               np.nan)
+        names = self.ll_dicts[0]["names"]
+        lll = ["val", "up", "low"]
+        df = pd.DataFrame(reshaped,
+                          index=block_numbers,
+                          columns=[[name] * len(names) * len(lll), [i for i in names for j in range(len(lll))],
+                                   lll * len(names)])
 
-            paramvalues = np.concatenate((paramvalues, fillnans), axis=2)
+        self._add_to_fit_results(df)
 
+        return df
 
-        self.mapping["ll_flux"] = paramvalues[0,0,:]
-        self.mapping["ll_flux_low"] = paramvalues[1,0,:]
-        self.mapping["ll_flux_up"] = paramvalues[2,0,:]
-        self.mapping["ll_index"] = paramvalues[0,1,:]
-        self.mapping["ll_index_low"] = paramvalues[1,1,:]
-        self.mapping["ll_index_up"] = paramvalues[2,1,:]
+    def _add_to_fit_results(self, df):
+        if self.fit_results is None:
+            self.fit_results = df
+        else:
+            self.fit_results = pd.concat((self.fit_results, df), axis=1)
 
+    def plot_ll_corner(self, name=None, name_prefix=None, plot_theta_sq=False):
+        if name is not None:
+            to_pdf = True
+            from matplotlib.backends.backend_pdf import PdfPages
+            pp = PdfPages(name)
+        else:
+            to_pdf = False
 
-
-    def plot_ll_corner(self, name_prefix=None):
         for i in range(len(self.ll_dicts)):
+
             entry = self.ll_dicts[i]
+            k = len(entry["labels"])
             block_number = self.mapping[self.mapping["has_data"]].index.values[i]
-            samples = entry["samples"][:, 150:, :].reshape((-1, len(entry["labels"])))
+            samples = entry["samples"][:, 150:, :].reshape((-1, k))
             plt.figure()
-            corner.corner(samples,
-                          labels=entry["labels"],
-                          quantiles=[0.16, 0.5, 0.84],
-                          show_titles=True,
-                          title_kwargs={"fontsize": 12})
+            fig = corner.corner(samples,
+                                labels=entry["labels"],
+                                quantiles=[0.16, 0.5, 0.84],
+                                show_titles=True,
+                                title_kwargs={"fontsize": 12})
+            if plot_theta_sq:
+                axes = np.array(fig.axes).reshape((k, k))
+                ax = axes[0, k-1]
+                self.spectra[i].plot_thetasq(ax=ax)
+
             if name_prefix is not None:
                 plt.savefig(self.basepath + name_prefix + str(block_number) + ".png")
+            if to_pdf:
+                pp.savefig()
+
+        if to_pdf:
+            pp.close()
+        plt.show()
 
     def plot_fluxes(self, name=None):
 

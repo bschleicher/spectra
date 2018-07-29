@@ -17,6 +17,7 @@ def fit_ll(spect,
            model='powerlaw',
            bounds=None,
            names=None,
+           labels=None,
            nwalkers=100,
            nsamples=500,
            nburnin=150):
@@ -24,16 +25,20 @@ def fit_ll(spect,
     if model == 'powerlaw':
         spec_function = powerlaw
         if bounds is None:
-            bounds = [[10**(-2), 10**(4)], [-5, 1]]
+            bounds = [[10**(-2), 10**(4)], [-8, 1]]
+        if labels is None:
+            labels = ["$\Phi$ [$10^{-11} cm^{-2}s^{-1}TeV^{-1}$]", "$\Gamma$"]
         if names is None:
-            names = ["$\Phi$ [$10^{-11} cm^{-2}s^{-1}TeV^{-1}$]", "$\Gamma$"]
+            names = ["flux", "index"]
 
     elif model == 'cutoff_powerlaw':
         spec_function = cutoff_powerlaw
         if bounds is None:
-            bounds = [[10**(-3), 10**(4)], [-7, 1], [0.5, 300]]
+            bounds = [[10**(-3), 10**(4)], [-8, 1], [0.5, 300]]
+        if labels is None:
+            labels = ["$\Phi$ [$10^{-11} cm^{-2}s^{-1}TeV^{-1}$]", "$\Gamma$", "$E_c$ [$GeV$]"]
         if names is None:
-            names = ["$\Phi$ [$10^{-11} cm^{-2}s^{-1}TeV^{-1}$]", "$\Gamma$", "$E_c$ [$GeV$]"]
+            names = ["flux", "index", "cutoff"]
 
     bin_width = (spect.energy_binning[1:] - spect.energy_binning[:-1])/1000
 
@@ -90,12 +95,12 @@ def fit_ll(spect,
 
     samples = sampler.chain[:, nburnin:, :].reshape((-1, ndim))
     parameters = []
-    for i in map(lambda v: (v[1], v[2] - v[1], v[1] - v[0]), zip(*np.percentile(samples, [5, 16, 50, 84, 95], axis=0))):
+    for i in map(lambda v: (v[1], v[2] - v[1], v[1] - v[0]), zip(*np.percentile(samples, [16, 50, 84], axis=0))):
         parameters.append(i)
 
     return {"parameters": parameters,
-            "fit_function": spec_function,
             "boundaries": bounds,
-            "labels": names,
+            "labels": labels,
+            "names": names,
             "samples": sampler.chain,
             "lnprobability": sampler.lnprobability}

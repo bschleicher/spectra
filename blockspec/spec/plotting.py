@@ -95,9 +95,10 @@ def plot_spectrum(bin_centers,
     return ax_sig, ax_flux
 
 
-def plot_theta(thetasquare_binning, thetasquare_on, thetasquare_off, thetasq_cut, stats=None, filename=None):
-    fig = plt.figure()
-    ax = plt.subplot()
+def plot_theta(thetasquare_binning, thetasquare_on, thetasquare_off, thetasq_cut, stats=None, filename=None, ax=None):
+    if ax is None:
+        fig = plt.figure()
+        ax = plt.subplot()
     ax.errorbar(x=(thetasquare_binning[1:]+thetasquare_binning[0:-1])/2,
                 y=thetasquare_on,
                 xerr=(thetasquare_binning[2]-thetasquare_binning[1])/2,
@@ -116,9 +117,8 @@ def plot_theta(thetasquare_binning, thetasquare_on, thetasquare_off, thetasq_cut
     ax.set_ylim(0, ax.get_ylim()[1])
     ax.set_xlim(thetasquare_binning[0], thetasquare_binning[-1])
 
-    plt.xlabel('$ \Theta^2 \, \mathrm{deg^2} $')
-    plt.ylabel('Counts')
-    plt.grid()
+
+    ax.grid()
 
     if stats:
         # x_text = 0.2
@@ -133,8 +133,11 @@ def plot_theta(thetasquare_binning, thetasquare_on, thetasquare_off, thetasq_cut
                "\n$\mathrm{\sigma_{LiMa}}$" + ": {0:3.2f}".format(stats["significance"])
 
         # plt.text(x_text, y_text, text)
-        plt.plot([], [], ' ', label=text)
-    plt.legend()
+        ax.plot([], [], ' ', label=text)
+    ax.legend()
+
+    plt.xlabel('$ \Theta^2 \, \mathrm{deg^2} $')
+    plt.ylabel('Counts')
 
     if filename is not None:
         fig.savefig(filename)

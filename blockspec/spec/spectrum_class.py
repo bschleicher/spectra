@@ -36,8 +36,18 @@ def save_variables_to_json(self, filename):
             data[entry] = aslist
         elif isinstance(data[entry], dict):
             for element in data[entry]:
-                aslist = data[entry][element].tolist()
+                aslist = data[entry][element]
+                if isinstance(data[entry][element], (np.ndarray, np.ma.core.MaskedArray)):
+                    aslist = data[entry][element].tolist()
                 data[entry][element] = aslist
+        elif isinstance(data[entry], list):
+            for id, element in enumerate(data[entry]):
+                if isinstance(element, dict):
+                    for thing in element:
+                        aslist = data[entry][id][thing]
+                        if isinstance(aslist, (np.ndarray, np.ma.core.MaskedArray)):
+                            aslist = aslist.tolist()
+                            data[entry][id][thing] = aslist
     with open(filename, 'w') as outfile:
         json.dump(data, outfile)
 
@@ -50,14 +60,18 @@ def load_variables_from_json(self, filename):
         containing = data[variable_name]
         if variable_name in self.list_of_variables:
             if isinstance(containing, list):
-                containing = np.array(containing)
-                if None in containing:  # allows to load masked numpy arrays
-                    containing = np.ma.masked_invalid(containing.astype(np.float))
+                if len(containing) > 0:
+                    if isinstance(containing[0], dict):
+                        pass
+                    else:
+                        containing = np.array(containing)
+                        if None in containing:  # allows to load masked numpy arrays
+                            containing = np.ma.masked_invalid(containing.astype(np.float))
             setattr(self, variable_name, containing)
 
         else:
             print("Key", variable_name, "not in list of variables.")
-            if variable_name in ["energy_labels", "zenith_labels"]:
+            if variable_name in ["energy_labels", "zenith_labels", "ll_dicts"]:  # Keep them for backwards compatibility
                 pass
             else:
                 raise KeyError('Key not in list of variables')
@@ -467,7 +481,7 @@ class Spectrum:
                              **kwargs)
         return axes
 
-    def plot_thetasq(self):
+    def plot_thetasq(self, ax=None):
         if self.on_theta_square_histo is None:
             print("No theta square histo, please run Spectrum.calc_differential_spectrum()")
             return
@@ -476,7 +490,8 @@ class Spectrum:
                           self.on_theta_square_histo,
                           self.off_theta_square_histo,
                           self.theta_square,
-                          self.stats)
+                          self.stats,
+                          ax=ax)
 
     ##############################################################
     # Define functions to dump and load variables as json
