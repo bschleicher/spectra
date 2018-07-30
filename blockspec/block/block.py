@@ -13,7 +13,7 @@ import corner
 from blockspec.spec import Spectrum
 from blockspec.spec.plotting import plot_spectrum
 from blockspec.spec.spectrum_class import load_variables_from_json, save_variables_to_json
-from blockspec.block.fitting import fit_ll
+from blockspec.block.fitting import fit_ll, fit_points
 
 import matplotlib.pyplot as plt
 
@@ -118,6 +118,7 @@ class BlockAnalysis(Sequence):
         self.tfitvalues = []
         self.tfitvalues2 = []
 
+        self.loglog_dicts = None
         self.ll_dicts = None
         self.fit_results = None
 
@@ -403,36 +404,31 @@ class BlockAnalysis(Sequence):
         self.mapping["flux5up"] = self.tfitvalues2[12] - self.mapping.flux5
         self.mapping["flux5low"] = self.mapping.flux5 - self.tfitvalues2[10]
 
-    def fit_loglike(self, name="ll_powerlaw", **kwargs):
-
+    def _fit(self, fit_function, verbose=False, **kwargs):
         block_numbers = []
         paramvalues = []
-        ll_dicts = []
-        for i, spect in enumerate(self.spectra):
+        dicts = []
+        for i, spect in enumerate(tqdm(self.spectra)):
             block_number = self.mapping[self.mapping["has_data"]].index.values[i]
             block_numbers.append(block_number)
-            print("################################################################")
-            print("block number", str(block_number))
-            print("################################")
-            ll_dict = fit_ll(spect, **kwargs)
-            ll_dicts.append(ll_dict)
-            paramvalues.append(ll_dict["parameters"])
+            if verbose:
+                print("################################################################")
+                print("block number", str(block_number))
+                print("################################")
+            result_dict = fit_function(spect, **kwargs)
+            dicts.append(result_dict)
+            paramvalues.append(result_dict["parameters"])
 
+        return block_numbers, paramvalues, dicts
 
-        self.ll_dicts = ll_dicts
-        block_numbers = np.array(block_numbers)
-        params = np.array(paramvalues)
+    def _prepare_fit_result_df(self, params, block_numbers, name, names):
+
         reshaped = params.reshape(params.shape[0], params.shape[1] * params.shape[2])
-
-        names = self.ll_dicts[0]["names"]
         lll = ["val", "up", "low"]
         df = pd.DataFrame(reshaped,
                           index=block_numbers,
                           columns=[[name] * len(names) * len(lll), [i for i in names for j in range(len(lll))],
                                    lll * len(names)])
-
-        self._add_to_fit_results(df)
-
         return df
 
     def _add_to_fit_results(self, df):
@@ -441,7 +437,37 @@ class BlockAnalysis(Sequence):
         else:
             self.fit_results = pd.concat((self.fit_results, df), axis=1)
 
-    def plot_ll_corner(self, name=None, name_prefix=None, plot_theta_sq=False):
+    def fit_loglog(self, name="linear_fit", verbose=False, **kwargs):
+
+        block_numbers, paramvalues, dicts = self._fit(fit_points, verbose=verbose, **kwargs)
+
+        self.loglog_dicts = dicts
+        block_numbers = np.array(block_numbers)
+        params = np.array(paramvalues)
+
+        names = self.loglog_dicts[0]["names"]
+
+        df = self._prepare_fit_result_df(params, block_numbers, name, names)
+        self._add_to_fit_results(df)
+
+        return df
+
+    def fit_loglike(self, name="ll_powerlaw", verbose=False, **kwargs):
+
+        block_numbers, paramvalues, dicts = self._fit(fit_ll, verbose=verbose, **kwargs)
+
+        self.ll_dicts = dicts
+        block_numbers = np.array(block_numbers)
+        params = np.array(paramvalues)
+
+        names = self.ll_dicts[0]["names"]
+
+        df = self._prepare_fit_result_df(params, block_numbers, name, names)
+        self._add_to_fit_results(df)
+
+        return df
+
+    def plot_ll_corner(self, name=None, name_prefix=None, plot_theta_sq=False, plot_flux=False):
         if name is not None:
             to_pdf = True
             from matplotlib.backends.backend_pdf import PdfPages
@@ -461,10 +487,13 @@ class BlockAnalysis(Sequence):
                                 quantiles=[0.16, 0.5, 0.84],
                                 show_titles=True,
                                 title_kwargs={"fontsize": 12})
-            if plot_theta_sq:
-                axes = np.array(fig.axes).reshape((k, k))
-                ax = axes[0, k-1]
-                self.spectra[i].plot_thetasq(ax=ax)
+            if plot_theta_sq or plot_flux:
+                fig.set_size_inches(5.5, 5.5)
+                fig.set_size_inches(10, 5.5)
+                fig.subplots_adjust(right=5.5 / 10)
+                if plot_theta_sq:
+                    ax = fig.add_axes([6 / 10, 0.15, 4 / 10, 0.4])
+                    self.spectra[i].plot_thetasq(ax=ax)
 
             if name_prefix is not None:
                 plt.savefig(self.basepath + name_prefix + str(block_number) + ".png")
