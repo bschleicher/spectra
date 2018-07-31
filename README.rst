@@ -4,7 +4,7 @@ Tools and scripts to create spectra from FACT MARS analysis
 
 
 1. Prepare Gamma Simulations:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To calculate the effective area, we need the information about all simulated events.
 This information is stored in ceres-files.
@@ -62,7 +62,7 @@ what changes all occurences.
     $ sed -i 's_ _/_g' star_files.txt
 
 1.1 Store info of 20000 ceres files in 8 hdf files, for significant speedup.
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The following python codesnippet shows how to store the info of all ceres files to 8 hdf files stored in the
 current directory.
@@ -98,12 +98,17 @@ current directory.
 
 1.2 Run Ganymed for Monte Carlos.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    Go to the Mars directory and do
+
+Go to the Mars directory and do
 
 .. code::
+
     $ cd
     $ cd Mars
     $ .x /media/michi/523E69793E69574F/gamma/ganymed.C("/media/michi/523E69793E69574F/gamma/star_new/star_files.txt","/media/michi/523E69793E69574F/gamma/star_new/gammasall",0,0,1)
+
+You can find a working Ganymed macro in this directory. It uses the disp parametrisation for the "new cleaning" and
+Johannes background cut. This should be the right one when using Mars ISDC analysis.
 
 3. Get the Data: Make a txt list of all runs and load star files from ISDC
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
