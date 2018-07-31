@@ -80,7 +80,7 @@ def fit_ll(spect,
         spec_function, start_values, bounds, labels, names = cutoff_powerlaw_model(bounds=bounds,
                                                                                    labels=labels,
                                                                                    names=names)
-    elif isinstance(model, function):
+    elif hasattr(model, '__call__'):
         spec_function = model
         if None in (bounds, names, labels):
             raise ValueError('If you provide a function as a model, you also have to provide bounds, names and labels.')
@@ -168,7 +168,7 @@ def fit_points(spect,
 
     if model == 'line':
         line, start_values, bounds, labels, names = line_model()
-    elif isinstance(model, function):
+    elif hasattr(model, '__call__'):
         if None in (start_values, names, labels):
             raise ValueError('If you provide a function as a model, '
                              'you also have to provide start_values, names and labels.')
@@ -194,7 +194,7 @@ def fit_points(spect,
         if bounds is not None:
             fit_kwargs["bounds"] = bounds
 
-        popt, pcov = curve_fit(line, **fit_kwargs)
+        popt, pcov = curve_fit(model, **fit_kwargs)
 
         sample = np.random.multivariate_normal(popt, pcov, 10000)
 
@@ -204,8 +204,8 @@ def fit_points(spect,
         parameters = _parameter_values_from_samples(sample)
 
         x3 = np.logspace(np.log10(1), np.log10(50), 200)
-        linepoints = np.power(10, line(np.log10(x3), popt[0], popt[1]))
-        y3 = np.power(10, line(np.log10(x3)[:, np.newaxis], sample[:, 0], sample[:, 1]))
+        linepoints = np.power(10, model(np.log10(x3), popt[0], popt[1]))
+        y3 = np.power(10, model(np.log10(x3)[:, np.newaxis], sample[:, 0], sample[:, 1]))
         low = np.percentile(y3, 16, axis=1)
         up = np.percentile(y3, 84, axis=1)
         # low90 = np.percentile(y3, 5, axis=1)

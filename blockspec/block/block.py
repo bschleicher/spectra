@@ -405,18 +405,25 @@ class BlockAnalysis(Sequence):
         self.mapping["flux5up"] = self.tfitvalues2[12] - self.mapping.flux5
         self.mapping["flux5low"] = self.mapping.flux5 - self.tfitvalues2[10]
 
-    def _fit(self, fit_function, verbose=False, **kwargs):
+    def _fit(self, fit_function, model=None, start_values=None, bounds=None, names=None, labels=None, *fitargs, **kwargs):
         block_numbers = []
         paramvalues = []
         dicts = []
+        verb = False
         for i, spect in enumerate(tqdm(self.spectra)):
             block_number = self.mapping[self.mapping["has_data"]].index.values[i]
             block_numbers.append(block_number)
-            if verbose:
+            if verb:
                 print("################################################################")
                 print("block number", str(block_number))
                 print("################################")
-            result_dict = fit_function(spect, **kwargs)
+            result_dict = fit_function(spect,
+                                       model=model,
+                                       start_values=start_values,
+                                       bounds=bounds,
+                                       names=names,
+                                       labels=labels,
+                                       **kwargs)
             dicts.append(result_dict)
             paramvalues.append(result_dict["parameters"])
 
@@ -439,7 +446,6 @@ class BlockAnalysis(Sequence):
             self.fit_results = pd.concat((self.fit_results, df), axis=1)
 
     def fit_loglog(self, name="linear_fit",
-                   verbose=False,
                    model='line',
                    start_values=None,
                    bounds=None,
@@ -448,17 +454,21 @@ class BlockAnalysis(Sequence):
                    **kwargs):
 
         if model == 'line':
-            fitargs = line_model()
-        elif isinstance(model, function):
+            model, start_values, bounds, labels, names = line_model()
+        elif hasattr(model, '__call__'):
             if None in (start_values, names, labels):
                 raise ValueError('If you provide a function as a model, '
                                  'you also have to provide start_values, names and labels.')
-            else:
-                fitargs = model, start_values, bounds, names, labels
         else:
             raise ValueError("'model' must either be line or a function")
 
-        block_numbers, paramvalues, dicts = self._fit(fit_points, verbose=verbose, *fitargs, **kwargs)
+        block_numbers, paramvalues, dicts = self._fit(fit_points,
+                                                      model=model,
+                                                      start_values=start_values,
+                                                      bounds=bounds,
+                                                      names=names,
+                                                      labels=labels,
+                                                      **kwargs)
 
         self.loglog_dicts = dicts
         setattr(self, name, dicts)
@@ -475,7 +485,6 @@ class BlockAnalysis(Sequence):
 
     def fit_loglike(self,
                     name="ll_powerlaw",
-                    verbose=False,
                     model='powerlaw',
                     start_values=None,
                     bounds=None,
@@ -484,20 +493,25 @@ class BlockAnalysis(Sequence):
                     **kwargs):
 
         if model == 'powerlaw':
-            fit_args = powerlaw_model(bounds=bounds, labels=labels,
-                                                                                names=names)
+            model, start_values, bounds, labels, names = powerlaw_model(bounds=bounds, labels=labels, names=names)
 
         elif model == 'cutoff_powerlaw':
-            fitargs = cutoff_powerlaw_model(bounds=bounds, labels=labels,
-                                                                                       names=names)
-        elif isinstance(model, function):
+            model, start_values, bounds, labels, names = cutoff_powerlaw_model(bounds=bounds, labels=labels, names=names)
+        elif hasattr(model, '__call__'):
 
             if None in (bounds, names, labels):
                 raise ValueError(
                     'If you provide a function as a model, you also have to provide bounds, names and labels.')
-            else:
-                fitargs = model, start_values, bounds, labels, names
-        block_numbers, paramvalues, dicts = self._fit(fit_ll, verbose=verbose, *fitargs, **kwargs)
+        else:
+            raise ValueError("Model must be 'powerlaw', 'cutoff_powerlaw' or a function")
+
+        block_numbers, paramvalues, dicts = self._fit(fit_ll,
+                                                      model=model,
+                                                      start_values=start_values,
+                                                      bounds=bounds,
+                                                      labels=labels,
+                                                      names=names,
+                                                      **kwargs)
 
         self.ll_dicts = dicts
         setattr(self, name, dicts)
