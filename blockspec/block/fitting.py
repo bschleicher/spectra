@@ -39,8 +39,10 @@ def cutoff_powerlaw_model(bounds=None, labels=None, names=None, pivot=1000, star
 
 
 def line_model(start_values=None, names=None, labels=None, bounds=None):
+
     def line(x, a, b):
         return a + b * x
+
     if start_values is None:
         start_values = [10**(-2), -2]
     if names is None:
@@ -60,13 +62,14 @@ def _parameter_values_from_samples(samples):
 
 
 def fit_ll(spect,
-           model='powerlaw',
-           bounds=None,
-           names=None,
-           labels=None,
            nwalkers=100,
            nsamples=500,
-           nburnin=150):
+           nburnin=150,
+           model='powerlaw',
+           start_values=None,
+           bounds=None,
+           labels=None,
+           names=None):
 
     if model == 'powerlaw':
         spec_function, start_values, bounds, labels, names = powerlaw_model(bounds=bounds,
@@ -79,7 +82,6 @@ def fit_ll(spect,
                                                                                    names=names)
     elif isinstance(model, function):
         spec_function = model
-
         if None in (bounds, names, labels):
             raise ValueError('If you provide a function as a model, you also have to provide bounds, names and labels.')
 
@@ -149,23 +151,29 @@ def fit_ll(spect,
 
 
 def fit_points(spect,
-               model="line",
-               start_values=None,
-               labels=None,
-               names=None,
-               bounds=None,
                min_energy=1000,
                min_significance=0.7,
                min_len=2,
                high_bin=-1,
                fit_log=True,
-               use_sigma=False):
+               use_sigma=False,
+               model="line",
+               start_values=None,
+               bounds=None,
+               labels=None,
+               names=None):
 
     from scipy.optimize import curve_fit
     from scipy import integrate
 
     if model == 'line':
         line, start_values, bounds, labels, names = line_model()
+    elif isinstance(model, function):
+        if None in (start_values, names, labels):
+            raise ValueError('If you provide a function as a model, '
+                             'you also have to provide start_values, names and labels.')
+    else:
+        raise ValueError("'model' must either be line or a function")
 
     selection = (spect.energy_center > min_energy) & (spect.significance_histo > min_significance)
 
@@ -181,12 +189,10 @@ def fit_points(spect,
 
         fit_kwargs = {"xdata": x, "ydata": y, "p0": start_values}
 
-
         if use_sigma:
             fit_kwargs["sigma"] = np.abs(spect.differential_spectrum_err[0][selection][:high_bin])
         if bounds is not None:
             fit_kwargs["bounds"] = bounds
-
 
         popt, pcov = curve_fit(line, **fit_kwargs)
 

@@ -13,7 +13,7 @@ import corner
 from blockspec.spec import Spectrum
 from blockspec.spec.plotting import plot_spectrum
 from blockspec.spec.spectrum_class import load_variables_from_json, save_variables_to_json
-from blockspec.block.fitting import fit_ll, fit_points
+from blockspec.block.fitting import fit_ll, fit_points, powerlaw_model, cutoff_powerlaw_model, line_model
 
 import matplotlib.pyplot as plt
 
@@ -59,7 +59,8 @@ class BlockAnalysis(Sequence):
                          "fitvalues2",
                          "tfitvalues",
                          "tfitvalues2",
-                         "ll_dicts"]
+                         "ll_dicts",
+                         "loglog_dicts"]
 
     def __init__(self,
                  ceres_list=["/home/michi/ceres.h5"],
@@ -437,11 +438,31 @@ class BlockAnalysis(Sequence):
         else:
             self.fit_results = pd.concat((self.fit_results, df), axis=1)
 
-    def fit_loglog(self, name="linear_fit", verbose=False, **kwargs):
+    def fit_loglog(self, name="linear_fit",
+                   verbose=False,
+                   model='line',
+                   start_values=None,
+                   bounds=None,
+                   names=None,
+                   labels=None,
+                   **kwargs):
 
-        block_numbers, paramvalues, dicts = self._fit(fit_points, verbose=verbose, **kwargs)
+        if model == 'line':
+            fitargs = line_model()
+        elif isinstance(model, function):
+            if None in (start_values, names, labels):
+                raise ValueError('If you provide a function as a model, '
+                                 'you also have to provide start_values, names and labels.')
+            else:
+                fitargs = model, start_values, bounds, names, labels
+        else:
+            raise ValueError("'model' must either be line or a function")
+
+        block_numbers, paramvalues, dicts = self._fit(fit_points, verbose=verbose, *fitargs, **kwargs)
 
         self.loglog_dicts = dicts
+        setattr(self, name, dicts)
+
         block_numbers = np.array(block_numbers)
         params = np.array(paramvalues)
 
@@ -452,11 +473,35 @@ class BlockAnalysis(Sequence):
 
         return df
 
-    def fit_loglike(self, name="ll_powerlaw", verbose=False, **kwargs):
+    def fit_loglike(self,
+                    name="ll_powerlaw",
+                    verbose=False,
+                    model='powerlaw',
+                    start_values=None,
+                    bounds=None,
+                    labels=None,
+                    names=None,
+                    **kwargs):
 
-        block_numbers, paramvalues, dicts = self._fit(fit_ll, verbose=verbose, **kwargs)
+        if model == 'powerlaw':
+            fit_args = powerlaw_model(bounds=bounds, labels=labels,
+                                                                                names=names)
+
+        elif model == 'cutoff_powerlaw':
+            fitargs = cutoff_powerlaw_model(bounds=bounds, labels=labels,
+                                                                                       names=names)
+        elif isinstance(model, function):
+
+            if None in (bounds, names, labels):
+                raise ValueError(
+                    'If you provide a function as a model, you also have to provide bounds, names and labels.')
+            else:
+                fitargs = model, start_values, bounds, labels, names
+        block_numbers, paramvalues, dicts = self._fit(fit_ll, verbose=verbose, *fitargs, **kwargs)
 
         self.ll_dicts = dicts
+        setattr(self, name, dicts)
+
         block_numbers = np.array(block_numbers)
         params = np.array(paramvalues)
 
@@ -503,6 +548,123 @@ class BlockAnalysis(Sequence):
         if to_pdf:
             pp.close()
         plt.show()
+
+    def _check_if_str_or_list_group(self, group):
+        if isinstance(group, str):
+            return [self.fit_results[group]]
+        elif isinstance(group, list):
+            return [self.fit_results[key] for key in group]
+        else:
+            raise ValueError("x_group or y_group must be either None when plotting from BlockAnalysis.mapping or a "
+                             "name or a list of names of the first level of BlockAnalysis.fit_results")
+    def _check_if_str_or_list_key(self, key):
+        if isinstance(key, str):
+            return [key]
+        elif isinstance(key, list):
+            return key
+        else:
+            raise ValueError("x_group or y_group must be either None when plotting from BlockAnalysis.mapping or a "
+                             "name or a list of names of the first level of BlockAnalysis.fit_results")
+
+    def _check_if_same_lenth_or_one(self, source, key):
+        if len(key) == len(source):
+            return key
+        elif len(key) == 1:
+            return key * len(source)
+        else:
+            raise ValueError("Shapes of group and key do not match.")
+
+
+    def plot(self, x_group=None, x_key='time', y_group=None, y_key='flux', **kwargs):
+        """ A wrapper function that allows to easily plot parameters of the fit results of the BlockAnalysis"""
+
+        if self.mapping is None:
+            raise ValueError("No mapping found, somethings wrong.")
+
+        if self.fit_results is None:
+            print("Warning, No fit results!")
+
+        if (x_group is None) and (y_group is None):
+            x_source = [self.mapping]
+            y_source = [self.mapping]
+            x_is_mapping = True
+            y_is_mapping = True
+
+        elif x_group is None:
+            x_source = [self.mapping.iloc[self.fit_results.index]]
+            y_source = self._check_if_str_or_list_group(y_group)
+            x_is_mapping = True
+            y_is_mapping = False
+        elif y_group is None:
+            y_source = [self.mapping.iloc[self.fit_results.index]]
+            x_source = self._check_if_str_or_list_group(x_group)
+            x_is_mapping = False
+            y_is_mapping = True
+        else:
+            x_source = self._check_if_str_or_list_group(x_group)
+            y_source = self._check_if_str_or_list_group(y_group)
+            x_is_mapping = False
+            y_is_mapping = False
+
+        x_key = self._check_if_str_or_list_key(x_key)
+        y_key = self._check_if_str_or_list_key(y_key)
+
+        x_key = self._check_if_same_lenth_or_one(x_source, x_key)
+        y_key = self._check_if_same_lenth_or_one(y_source, y_key)
+
+        if len(x_source) == len(y_source):
+            pass
+        elif len(x_source) == 1:
+            x_source = x_source * len(y_source)
+            x_key = x_key * len(y_source)
+        elif len(y_source) == 1:
+            y_source = y_source * len(x_source)
+            y_key = y_key * len(x_source)
+        else:
+            raise ValueError("Shapes of x and y do not match! Must be same length or either one must be of length one.")
+
+        for i in range(len(x_source)):
+            if x_is_mapping:
+                x = x_source[i][x_key[i]].values
+                xerr = x_source[i][x_key[i]+"_err"].values
+            else:
+                x = x_source[i][x_key[i]]["val"].values
+                xerr = [x_source[i][x_key[i]]["low"].values, x_source[i][x_key[i]]["up"].values]
+            if y_is_mapping:
+                y = y_source[i][y_key[i]].values
+                yerr = y_source[i][y_key[i]+"_err"].values
+            else:
+                y = y_source[i][y_key[i]]["val"].values
+                yerr = [y_source[i][y_key[i]]["low"].values, y_source[i][y_key[i]]["up"].values]
+
+            plt.errorbar(x=x, y=y, xerr=xerr, yerr=yerr, **kwargs)
+
+
+    def _plot_flux(self, id, ax_sig=None, ax_flux=None):
+        block_number = self.fit_results.index.values[id]
+        self.spectra[id].plot_flux(crab_do=True,
+                                             label=str(block_number) + ": " + self.mapping.time[block_number].strftime(
+                                                 "%Y-%m-%d %H:%M"),
+                                             ax_sig=ax_sig,
+                                             ax_flux=ax_flux)
+
+        x = np.logspace(np.log10(0.750), np.log10(50), 100)
+        fit_select = self.fitvalues[:, 0] == block_number
+        if fit_select.any():
+            if not np.isnan(self.mapping["photon_index"][block_number]):
+                # plt.plot(x, exp_pow(x, *fitvalues[fit_select][0,1:3]), label="Exponential Fit")
+                # plt.plot(x, exp_pow(x, fitvalues[fit_select][0][1], fitvalues[fit_select][0][2]+0.5), label="Fit +0.5")
+                # plt.plot(x, exp_pow(x, fitvalues[fit_select][0][1], fitvalues[fit_select][0][2]-0.5), label="Fit -0.5")
+                plt.plot(x * 1000, np.power(10, line(np.log10(x), self.fitvalues2[fit_select][0][1],
+                                                     self.fitvalues2[fit_select][0][2])), label="Linear Fit")
+                text = "Index: {0:1.2f} $\pm$ {1:1.2f} \nLog10(Flux) at 1 TeV:\n{2:.2f} $\pm$ {3:2.2f}".format(
+                    self.tfitvalues2[2][block_number], self.tfitvalues2[5][block_number],
+                    self.tfitvalues2[1][block_number], self.tfitvalues2[4][block_number])
+                plt.fill_between(*confidence(*self.pcovs[block_number]), alpha=0.4, label="68% containment")
+                plt.plot([], [], ' ', label=text)
+            plt.legend()
+
+
 
     def plot_fluxes(self, name=None):
 
@@ -596,16 +758,24 @@ class BlockAnalysis(Sequence):
         ax_sig = plt.subplot2grid((8, 1), (6, 0), rowspan=2)  # inspired from pyfact
         ax_flux = plt.subplot2grid((8, 1), (0, 0), rowspan=6, sharex=ax_sig)
         for block_number in range(len(self.spectral_data)):
-            plot_spectrum(self.spectral_data[block_number]["energy_center"], self.spectral_data[block_number]["energy_error"],
+            plot_spectrum(self.spectral_data[block_number]["energy_center"],
+                          self.spectral_data[block_number]["energy_error"],
                           self.spectral_data[block_number]["differential_spectrum"],
                           self.spectral_data[block_number]["differential_spectrum_err"],
-                          self.spectral_data[block_number]["significance_histo"], ax_flux=ax_flux, ax_sig=ax_sig,
-                          label=str(block_number), alpha=0.3)
+                          self.spectral_data[block_number]["significance_histo"],
+                          ax_flux=ax_flux,
+                          ax_sig=ax_sig,
+                          label=str(block_number),
+                          alpha=0.3)
         plt.show()
 
-    def plot_index_vs_flux(self):
-        plt.errorbar(x=self.mapping.flux5, xerr=[self.mapping.flux5low, self.mapping.flux5up], y=self.mapping.photon_index,
-                     yerr=self.mapping.photon_index_err, fmt=".", label="Crab")
+    def plot_index_vs_flux(self,):
+        plt.errorbar(x=self.mapping.flux5,
+                     xerr=[self.mapping.flux5low, self.mapping.flux5up],
+                     y=self.mapping.photon_index,
+                     yerr=self.mapping.photon_index_err,
+                     fmt=".",
+                     label="Crab")
         plt.xscale("log")
         plt.xlabel("Flux [$\mathrm{cm^{-2}s^{-1}}$]")
         plt.ylabel("Photon Index")
