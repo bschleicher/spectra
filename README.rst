@@ -21,6 +21,9 @@ If you want, copy all ceres files to your hard drive:
     $ rsync -rv --include="*/" --include="gamma_*/*/*_I_*.root.gz" --exclude="*" isdc:/gpfs0/fact/monte-carlo/dortmund/ceres/ /media/michi/523E69793E69574F/gamma/ceres/
 
 In case you have to unzip the ceres files just do
+
+.. code::
+
     $ cd ceres
     $ gzip -d */*/*.root.gz
 
@@ -51,12 +54,12 @@ your path. Be careful with the -i option, because it changes the file in place.
     $ find /media/michi/523E69793E69574F/gamma/star_new -type f -size +4096c -iname star.root | sort > star_files.txt
     $ sed -i 's_/_ _8' star_files.txt
 
-in case you need to undo the exchange of / with a blank space, you can do, where g stands for global, what changes all
-occurences.
+in case you need to undo the exchange of / with a blank space, use the following command, in which g stands for global,
+what changes all occurences.
 
 .. code::
 
-    $ sed -i 's__/_g' star_files.txt
+    $ sed -i 's_ _/_g' star_files.txt
 
 1.1 Store info of 20000 ceres files in 8 hdf files, for significant speedup.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -64,7 +67,7 @@ occurences.
 The following python codesnippet shows how to store the info of all ceres files to 8 hdf files stored in the
 current directory.
 
-. code-block:: python
+.. code-block:: python
 
     from tqdm import tqdm
     from read_mars import read_mars
