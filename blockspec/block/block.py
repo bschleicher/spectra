@@ -174,6 +174,7 @@ class BlockAnalysis(Sequence):
     def run_spectra(self,
                     theta_sq=0.04,
                     efunc=None,
+                    cut=None,
                     correction_factors=False,
                     optimize_theta=False,
                     optimize_ebinning=True,
@@ -223,9 +224,9 @@ class BlockAnalysis(Sequence):
 
                     if optimize_ebinning:
                         spectrum.optimize_ebinning(sigma_threshold=1.3, min_counts_per_bin=10)
-                    # spectrum.set_energy_binning(np.logspace(np.log10(200), np.log10(50000), 10))
+                    spectrum.set_energy_binning(np.logspace(np.log10(200), np.log10(50000), 13))
 
-                    spectrum.calc_differential_spectrum(efunc=efunc, force_calc=force)
+                    spectrum.calc_differential_spectrum(efunc=efunc, force_calc=force, cut=cut)
 
                     spectrum.save(path)
                     self.spectra.append(spectrum)
@@ -235,6 +236,9 @@ class BlockAnalysis(Sequence):
                     print(err)
                     print("Please check if there is any star file in block", block_number)
                     has_data[block_number] = False
+                except ValueError as err:
+                    print(err)
+                    print("Please check whats going on")
 
         self.mapping["has_data"] = has_data
 

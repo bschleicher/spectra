@@ -68,6 +68,9 @@ def calc_on_time(ganymed_input_list, zdbins, use_multiprocessing=True, n_chunks=
 
     ganymed_input_list = [entry.strip().replace(" ", "/") for entry in ganymed_input_list if not entry.startswith('#')]
 
+    if len(ganymed_input_list) == 0:
+        raise ValueError("No Files in input_list")
+
     if len(ganymed_input_list) < n_chunks:
         n_chunks = len(ganymed_input_list)
         print("Number of runs smaller than specified number of chunks, use {} chunks instead.".format(n_chunks))
