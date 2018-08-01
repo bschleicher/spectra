@@ -89,15 +89,19 @@ def forest_energy(gamma_on):
     predicted = clf.predict(X)
     return predicted
 
+def cut(x):
+    return x['MHillas.fSize'] > 200
+
 spectrum.set_theta_square(0.04)
 spectrum.optimize_theta()
-spectrum.optimize_ebinning(min_counts_per_bin=10, sigma_threshold=1.3)
-#spectrum.set_energy_binning(np.logspace(np.log10(200), np.log10(50000), 12))
-spectrum.set_zenith_binning(np.linspace(0, 60, 15))
+#spectrum.optimize_ebinning(min_counts_per_bin=10, sigma_threshold=3)
+spectrum.set_energy_binning(np.logspace(np.log10(200), np.log10(50000), 13))
+spectrum.set_zenith_binning(np.linspace(0, 60, 31))
 spectrum.set_correction_factors(False)
 spec = spectrum.calc_differential_spectrum(use_multiprocessing=True,
                                     efunc=forest_energy_impact,
-                                    #slope_goal=0.3
+                                    # slope_goal=0.3,
+                                    cut=cut,
                                     )
 print(spec)
 print(spectrum.energy_migration)

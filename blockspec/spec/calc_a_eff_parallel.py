@@ -74,7 +74,8 @@ def calc_a_eff_parallel_hd5(ebins,
                             list_of_hdf_ceres_files="/home/michi/read_mars/ceres_part",
                             energy_function=None,
                             slope_goal=None,
-                            impact_max=54000.0):
+                            impact_max=54000.0,
+                            cut=None):
 
     leafs = ["DataType.fVal",
              "MPointingPos.fZd",
@@ -104,7 +105,8 @@ def calc_a_eff_parallel_hd5(ebins,
                                                     theta_square_cut,
                                                     energy_function=energy_function,
                                                     slope_goal=slope_goal,
-                                                    energy_function2=energy_mc)
+                                                    energy_function2=energy_mc,
+                                                    cut=cut)
     if use_correction_factors:
         axis = 2
     else:

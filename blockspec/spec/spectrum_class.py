@@ -190,6 +190,8 @@ class Spectrum:
         self.differential_spectrum = None
         self.differential_spectrum_err = None
 
+        self.energy_function = None
+
         self.stats = {}
 
     ##############################################################
@@ -231,15 +233,21 @@ class Spectrum:
     # Optimise Theta and optimise e-binning
     ##############################################################
     def read_events(self):
+        if self.energy_function is None:
+            def energy_function(x):
+                return np.power(29.65 * x["MHillas.fSize"],
+                                                          (0.77 / np.cos((x["MPointingPos.fZd"] * 1.35 * np.pi)
+                                                            / 360))) + x["MNewImagePar.fLeakage2"] * 13000
+        else:
+            energy_function = self.energy_function
+
+
         select_leaves = ['DataType.fVal', 'MPointingPos.fZd', 'FileId.fVal',
                          'MTime.fMjd', 'MTime.fTime.fMilliSec', 'MTime.fNanoSec',
                          'MHillas.fSize', 'ThetaSquared.fVal', 'MNewImagePar.fLeakage2',
                          'MHillas.fLength', 'MHillas.fWidth']
         data = read_mars(self.ganymed_file_data, leaf_names=select_leaves)
-        data = data.assign(energy=lambda x: (
-                                             np.power(29.65 * x["MHillas.fSize"],
-                                                      (0.77 / np.cos((x["MPointingPos.fZd"] * 1.35 * np.pi)
-                                                       / 360))) + x["MNewImagePar.fLeakage2"] * 13000))
+        data = data.assign(energy=energy_function)
         return data
 
     def optimize_theta(self):
@@ -338,7 +346,7 @@ class Spectrum:
         print("On Time per ZD:", self.on_time_per_zd)
         return self.on_time_per_zd
 
-    def calc_on_off_histo(self, ganymed_file=None, energy_function=None):
+    def calc_on_off_histo(self, ganymed_file=None, cut=None):
         select_leaves = ['DataType.fVal', 'MPointingPos.fZd', 'FileId.fVal', 'MTime.fMjd', 'MTime.fTime.fMilliSec',
                          'MTime.fNanoSec', 'MHillas.fSize', 'ThetaSquared.fVal', 'MNewImagePar.fLeakage2',
                          'MHillas.fWidth', 'MHillasSrc.fDist', 'MHillasExt.fM3Long',
@@ -362,7 +370,8 @@ class Spectrum:
                                      self.zenith_binning,
                                      self.energy_binning,
                                      self.theta_square,
-                                     energy_function=energy_function)
+                                     energy_function=self.energy_function,
+                                     cut=cut)
 
         # Save Theta-Sqare histograms
         self.theta_square_binning = histos[1][0][1]
@@ -396,7 +405,7 @@ class Spectrum:
 
         self.overall_significance = li_ma_significance(self.n_on_events, self.n_off_events, self.alpha)
 
-    def calc_effective_area(self, analysed_ceres_ganymed=None, ceres_list=None, energy_function=None, slope_goal=None):
+    def calc_effective_area(self, analysed_ceres_ganymed=None, ceres_list=None, slope_goal=None, cut=None):
         if not ceres_list:
             ceres_list = self.list_of_ceres_files
         if not analysed_ceres_ganymed:
@@ -408,23 +417,34 @@ class Spectrum:
                                         self.theta_square,
                                         path=analysed_ceres_ganymed,
                                         list_of_hdf_ceres_files=ceres_list,
-                                        energy_function=energy_function,
+                                        energy_function=self.energy_function,
                                         slope_goal=slope_goal,
-                                        impact_max=54000.0)
+                                        impact_max=54000.0,
+                                        cut=cut)
 
         self.effective_area, self.effective_area_err, self.energy_migration = areas
         return self.effective_area, self.effective_area_err
 
-    def calc_differential_spectrum(self, use_multiprocessing=True, efunc=None, slope_goal=None, force_calc=False):
+    def calc_differential_spectrum(self,
+                                   use_multiprocessing=True,
+                                   efunc=None,
+                                   slope_goal=None,
+                                   force_calc=False,
+                                   cut=None):
+        if efunc is None:
+            if self.energy_function is not None:
+                efunc = self.energy_function
+        else:
+            self.energy_function = efunc
 
         if (self.on_time_per_zd is None) or force_calc:
             self.calc_ontime(use_multiprocessing=use_multiprocessing, force_calc=force_calc)
 
         if (self.on_histo is None) or force_calc:
-            self.calc_on_off_histo(energy_function=efunc)
+            self.calc_on_off_histo(cut=cut)
 
         if (self.effective_area is None) or force_calc:
-            self.calc_effective_area(slope_goal=slope_goal, energy_function=efunc)
+            self.calc_effective_area(slope_goal=slope_goal, cut=cut)
 
         bin_centers = np.power(10, (np.log10(self.energy_binning[1:]) + np.log10(self.energy_binning[:-1])) / 2)
         bin_width = self.energy_binning[1:] - self.energy_binning[:-1]

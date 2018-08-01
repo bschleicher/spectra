@@ -47,7 +47,14 @@ def calc_onoffhisto(data,
                     thetasq,
                     energy_function=None,
                     slope_goal=None,
-                    energy_function2=None):
+                    energy_function2=None,
+                    cut=None):
+
+    if cut is not None:
+        if hasattr(cut, '__call__'):
+            data = data.loc[data.apply(cut, axis=1)].copy()
+        else:
+            raise ValueError('Cut is not callable, please check if it is a function of DataFrame columns')
 
     if energy_function is None:
         def energy_function(x):
@@ -61,7 +68,6 @@ def calc_onoffhisto(data,
 
     on_histo = np.zeros([len(zdbins)-1, len(ebins)-1])
     off_histo = np.zeros([len(zdbins)-1, len(ebins)-1])
-
 
     if data["ThetaSquared.fVal"].min() < thetasq:
         try:
