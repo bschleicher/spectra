@@ -30,6 +30,25 @@ def confidence(popt, pcov, conf_low=16, conf_up=84):
     return x3, low, up
 
 
+def conf_from_sample(sample, func, conf_low=16, conf_up=84, minx=750, maxx=50000, n=150):
+    """ Get confidence bands of fit function from samples of its ndim parameters.
+        sample must have a shape of (..., ndim)"""
+
+    samp = sample.reshape((-1, sample.shape[-1]))
+
+    paramlist = []
+    for param in range(samp.shape[-1]):
+        paramlist.append(samp[:, param, np.newaxis])
+
+    x = np.logspace(np.log10(minx), np.log10(maxx), n)
+    y = func(x, *paramlist)
+    mid = np.percentile(y, 50, axis=0)
+    low = np.percentile(y, conf_low, axis=0)
+    up = np.percentile(y, conf_up, axis=0)
+
+    return x, mid, low, up
+
+
 def line(x, a, b):
     return a - b * x
 
@@ -58,9 +77,12 @@ class BlockAnalysis(Sequence):
                          "fitvalues",
                          "fitvalues2",
                          "tfitvalues",
-                         "tfitvalues2",
-                         "ll_dicts",
-                         "loglog_dicts"]
+                         "tfitvalues2"]
+
+    list_to_save_as_np = ["ll_dicts",
+                          "loglog_dicts",
+                          "ll_confs",
+                          "loglog_confs"]
 
     def __init__(self,
                  ceres_list=["/home/michi/ceres.h5"],
@@ -73,24 +95,13 @@ class BlockAnalysis(Sequence):
                  ):
 
         super().__init__()
+
         self.ceres_list = ceres_list
-        print("List of ceres lists:", self.ceres_list)
-
         self.ganymed_mc = ganymed_mc
-        print("Ganymed File of analyzed MC:", self.ganymed_mc)
-
         self.basepath = basepath
-        print("Basepath of block analysis:", self.basepath)
-
         self.ganymed_path = ganymed_path
-        print("Ganymed File of analyzed data:", self.ganymed_path)
-
         self.mars_directory = mars_directory
-        print("Mars Directory:", self.mars_directory)
-
         self.spectrum_path = basepath + spec_identifier
-        print("Saving spectra to prefix", self.spectrum_path)
-
         self.source_name = source_name
 
         self.source_ra = None
@@ -103,10 +114,6 @@ class BlockAnalysis(Sequence):
                 self.source_deg = source.dec.deg
             except NameResolveError:
                 print("Temporary failure in name resolution, initializing source coordinates with None")
-
-        print("Source:", self.source_name)
-        print("    Ra:", self.source_ra)
-        print("    Dec:", self.source_deg)
 
         self.mapping = None
         self.load_mapping()
@@ -123,9 +130,13 @@ class BlockAnalysis(Sequence):
         self.ll_dicts = None
         self.fit_results = None
 
+        self.ll_confs = None
+        self.loglog_confs = None
+
         if self.mapping is not None:
             try:
                 print("Trying to load spectral data.")
+                self.load_fits()
                 self.load_spectral_data()
                 print("Loading spectral data succeeded.")
             except FileNotFoundError:
@@ -137,28 +148,48 @@ class BlockAnalysis(Sequence):
     def __len__(self):
         return len(self.spectra)
 
-    def save(self, filename):
+    def print_info(self):
+        print("List of ceres lists:", self.ceres_list)
+        print("Ganymed File of analyzed MC:", self.ganymed_mc)
+        print("Basepath of block analysis:", self.basepath)
+        print("Ganymed File of analyzed data:", self.ganymed_path)
+        print("Mars Directory:", self.mars_directory)
+        print("Saving spectra to prefix", self.spectrum_path)
+
+        print("Source:", self.source_name)
+        print("    Ra:", self.source_ra)
+        print("    Dec:", self.source_deg)
+
+    def save(self, filename, save_fit_samples=True):
         save_variables_to_json(self, filename)
         self.mapping.to_json(self.basepath + "blocks/mapping.json", double_precision=15)
         if self.fit_results is not None:
-            self.fit_results.to_json(self.basepath + "blocks/fit_results.json", double_precision=15)
+            print("thisworks")
+            self.fit_results.to_pickle(self.basepath + "blocks/fit_results.pkl")
+        if save_fit_samples:
+            savez_dict = {}
+            for variable in self.list_to_save_as_np:
+                savez_dict[variable] = getattr(self, variable)
+            np.savez(self.basepath + "blocks/fit_samples.npz", **savez_dict)
 
-    def load(self, filename):
+    def load(self, filename, load_fit_samples=True):
         load_variables_from_json(self, filename)
         self.load_mapping()
         self.load_fits()
         self.load_spectral_data()
+        if load_fit_samples:
+            npzfile = np.load(self.basepath+ "blocks/fit_samples.npz")
+            for variable in self.list_to_save_as_np:
+                setattr(self, variable, npzfile[variable])
 
     def load_fits(self):
         try:
-            self.fit_results = pd.read_json(self.basepath + "blocks/fit_results.json", precise_float=True)
+            self.fit_results = pd.read_pickle(self.basepath + "blocks/fit_results.pkl")
+
             print("Fit results succesfully read.")
 
-        except ValueError:
+        except FileNotFoundError:
             print("File with fit results does not yet exist.")
-
-        if self.mapping is not None:
-            self.calc_mapping_columns()
 
     def load_mapping(self):
         try:
@@ -485,6 +516,19 @@ class BlockAnalysis(Sequence):
         df = self._prepare_fit_result_df(params, block_numbers, name, names)
         self._add_to_fit_results(df)
 
+        def wrap_model(x, a, b):
+            return np.power(10, model(np.log10(np.divide(x, 1000)), a, b))
+
+        loglog_confs = []
+        for i in self.loglog_dicts:
+            if i["samples"] is not None:
+                sample = i["samples"]
+                # sample[:, :1] = np.log10(sample[:, :1])
+                loglog_confs.append(conf_from_sample(sample, wrap_model))
+            else:
+                loglog_confs.append(None)
+        self.loglog_confs = loglog_confs
+
         return df
 
     def fit_loglike(self,
@@ -527,6 +571,14 @@ class BlockAnalysis(Sequence):
 
         df = self._prepare_fit_result_df(params, block_numbers, name, names)
         self._add_to_fit_results(df)
+
+        ll_confs = []
+        for i in self.ll_dicts:
+            if i["samples"] is not None:
+                ll_confs.append(conf_from_sample(i["samples"][:, 150:, :], model))
+            else:
+                ll_confs.append(None)
+        self.ll_confs = ll_confs
 
         return df
 
@@ -657,8 +709,18 @@ class BlockAnalysis(Sequence):
 
             plt.errorbar(x=x, y=y, xerr=xerr, yerr=yerr, **kwargs)
 
+    def _plot_conf_loglike(self, id):
+        x, mid, low, up = self.ll_confs[id]
+        plt.plot(x, mid, label="Fit LogLike")
+        plt.fill_between(x, low, up, label="LogLike 68 % confidence", alpha=0.4)
 
-    def _plot_flux(self, id, ax_sig=None, ax_flux=None):
+    def _plot_conf_loglog(self, id):
+        if self.loglog_confs[id] is not None:
+            x, mid, low, up = self.loglog_confs[id]
+            plt.plot(x, mid, label="Fit Linear")
+            plt.fill_between(x, low, up, label="Linear 68 % confidence", alpha=0.4)
+
+    def _plot_flux(self, id, sample=None, ax_sig=None, ax_flux=None):
         block_number = self.fit_results.index.values[id]
         self.spectra[id].plot_flux(crab_do=True,
                                              label=str(block_number) + ": " + self.mapping.time[block_number].strftime(
@@ -666,23 +728,18 @@ class BlockAnalysis(Sequence):
                                              ax_sig=ax_sig,
                                              ax_flux=ax_flux)
 
-        x = np.logspace(np.log10(0.750), np.log10(50), 100)
-        fit_select = self.fitvalues[:, 0] == block_number
-        if fit_select.any():
-            if not np.isnan(self.mapping["photon_index"][block_number]):
-                # plt.plot(x, exp_pow(x, *fitvalues[fit_select][0,1:3]), label="Exponential Fit")
-                # plt.plot(x, exp_pow(x, fitvalues[fit_select][0][1], fitvalues[fit_select][0][2]+0.5), label="Fit +0.5")
-                # plt.plot(x, exp_pow(x, fitvalues[fit_select][0][1], fitvalues[fit_select][0][2]-0.5), label="Fit -0.5")
-                plt.plot(x * 1000, np.power(10, line(np.log10(x), self.fitvalues2[fit_select][0][1],
-                                                     self.fitvalues2[fit_select][0][2])), label="Linear Fit")
-                text = "Index: {0:1.2f} $\pm$ {1:1.2f} \nLog10(Flux) at 1 TeV:\n{2:.2f} $\pm$ {3:2.2f}".format(
-                    self.tfitvalues2[2][block_number], self.tfitvalues2[5][block_number],
-                    self.tfitvalues2[1][block_number], self.tfitvalues2[4][block_number])
-                plt.fill_between(*confidence(*self.pcovs[block_number]), alpha=0.4, label="68% containment")
-                plt.plot([], [], ' ', label=text)
-            plt.legend()
+        if sample is None:
+            pass
+        else:
+            if isinstance(sample, str):
+                sample = [sample]
+            if 'loglike' in sample:
+                self._plot_conf_loglike(id)
+            if 'loglog' in sample:
+                self._plot_conf_loglog(id)
 
-
+        plt.legend()
+        plt.tight_layout()
 
     def plot_fluxes(self, name=None):
 
@@ -722,8 +779,8 @@ class BlockAnalysis(Sequence):
                 plt.legend()
                 plt.tight_layout()
                 # plt.savefig("/home/michi/mrk501/"+str(block_number)+"-flux.pdf", format="pdf")
-                if to_pdf:
-                    pp.savefig()
+            if to_pdf:
+                pp.savefig()
 
         if to_pdf:
             pp.close()

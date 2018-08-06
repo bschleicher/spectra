@@ -10,7 +10,7 @@ def powerlaw_model(bounds=None, labels=None, names=None, start_values=None):
         return k*np.power(x/1000, gamma)  # * np.exp(np.divide(x, 6000))
 
     if bounds is None:
-        bounds = [[10**(-2), 10**(4)], [-8, 1]]
+        bounds = [[10**(-4), 10**(4)], [-8, 1]]
     if labels is None:
         labels = ["$\Phi$ [$10^{-11} cm^{-2}s^{-1}TeV^{-1}$]", "$\Gamma$"]
     if names is None:
@@ -29,7 +29,7 @@ def cutoff_powerlaw_model(bounds=None, labels=None, names=None, pivot=1000, star
         return k * np.exp(log_thing)
 
     if bounds is None:
-        bounds = [[10**(-3), 10**(4)], [-8, 1], [0.5, 300]]
+        bounds = [[10**(-4), 10**(4)], [-8, 1], [0.5, 300]]
     if labels is None:
         labels = ["$\Phi$ [$10^{-11} cm^{-2}s^{-1}TeV^{-1}$]", "$\Gamma$", "$E_c$ [$TeV$]"]
     if names is None:
@@ -198,8 +198,8 @@ def fit_points(spect,
 
         sample = np.random.multivariate_normal(popt, pcov, 10000)
 
-        if fit_log:
-            sample[:, :1] = np.power(10, sample[:, :1])
+        #if fit_log:
+        #    sample[:, :1] = np.power(10, sample[:, :1])
 
         parameters = _parameter_values_from_samples(sample)
 
