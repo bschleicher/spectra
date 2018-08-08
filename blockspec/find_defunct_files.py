@@ -4,12 +4,12 @@ import os
 
 result = ROOT.gSystem.Load('libmars.so')
 if result != 0:
-    raise ImportError(
-        'Could not load libmars, Make sure to set your "LD_LIBRARY_PATH"'
+    print(
+        'Could not load libmars, make sure to set your "LD_LIBRARY_PATH". If it is set, it was loaded before.'
     )
 
 
-def check_file(entry, trees=None):
+def _check_file(entry, trees=None, defect_list=None, few_entries_list=None):
     if trees is None:
         trees = ["Events", "Drive", "Rates"]
     try:
@@ -22,27 +22,31 @@ def check_file(entry, trees=None):
             if n_entries < 2:
                 print("Less than 2 entries in Tree!")
                 few_entries_list.append([entry, tree, n_entries])
-        return True
+        return True, defect_list, few_entries_list
     except AttributeError as inst:
         print(inst)
         print("File does probably not exist")
         defect_list.append(entry)
-        return False
+        return False, defect_list, few_entries_list
 
 
-def check_txt(path, make_comment):
+def _check_txt(path, make_comment, defect_list, few_entries_list, trees=None):
     with open(path, "r") as f:
         star_list = list(f)
-    out_list = check_list(star_list)
+    out_list, defect_list, few_entries_list = _check_list(star_list, defect_list, few_entries_list, trees=trees)
     if make_comment is True:
         with open(path, "w") as f:
             f.write("".join(out_list))
+    return defect_list, few_entries_list
 
 
-def check_list(input_list):
+def _check_list(input_list, defect_list, few_entries_list, trees=None):
     iter_list = [entry.strip().replace(" ", "/") for entry in input_list if not entry.startswith('#')]
     for n in range(len(iter_list)):
-        check = check_file(iter_list[n])
+        check, defect_list, few_entries_list = _check_file(iter_list[n],
+                                                           defect_list=defect_list,
+                                                           few_entries_list=few_entries_list,
+                                                           trees=trees)
         if not check:
             input_list[n] = "# " + input_list[n]
     print("Files that raise error:")
@@ -52,29 +56,48 @@ def check_list(input_list):
     for entry, tree, n_entries in few_entries_list:
         print(entry)
         print("In tree:", tree, "Entries:", n_entries)
-    return input_list
+    return input_list, defect_list, few_entries_list
 
 
-def check_txt_or_directory(directory_or_file, comment_defect_lines=True):
+def check_mars_files(directory_or_file, comment_defect_lines=True, trees=None):
+    """Check a root file, a directory containing root files and txt runlists or a txt runlist file if they contain
+       events in some trees. 
+       If trees=None (default), ["Events", "Drive", "Rates"] will be checked. This is good to check Star files."""
+
+    defect_list = []
+    few_entries_list = []
 
     if directory_or_file.endswith(".txt"):
-        check_txt(directory_or_file, comment_defect_lines)
+        defect_list, few_entries_list = _check_txt(directory_or_file,
+                                                   comment_defect_lines,
+                                                   defect_list,
+                                                   few_entries_list,
+                                                   trees=trees)
+
+    elif directory_or_file.endswith(".root"):
+        check, defect_list, few_entries_list = _check_file(directory_or_file, defect_list=defect_list,
+                                                           few_entries_list=few_entries_list, trees=trees)
+
     else:
         for file in os.listdir(directory_or_file):
             if file.endswith(".txt"):
                 print(file)
-                check_txt(directory_or_file + "/" + file, comment_defect_lines)
+                defect_list, few_entries_list = _check_txt(directory_or_file + "/" + file,
+                                                           comment_defect_lines,
+                                                           defect_list,
+                                                           few_entries_list,
+                                                           trees=trees)
 
             elif file.endswith(".root"):
                 print(file)
-                check_file(directory_or_file + "/" + file)
+                check, defect_list, few_entries_list = _check_file(directory_or_file + "/" + file,
+                                                                   defect_list=defect_list,
+                                                                   few_entries_list=few_entries_list,
+                                                                   trees=trees)
     return defect_list, few_entries_list
 
 
 if __name__ == '__main__':
-
-    defect_list = []
-    few_entries_list = []
 
     import argparse
 
@@ -89,4 +112,4 @@ if __name__ == '__main__':
     if args.comment_defect_lines:
         print("Commenting out runs that raise error")
 
-    check_txt_or_directory(args.directory_or_file, args.comment_defect_lines)
+    check_mars_files(args.directory_or_file, args.comment_defect_lines)
