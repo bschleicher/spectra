@@ -225,9 +225,10 @@ class BlockAnalysis(Sequence):
                     **kwargs):
 
         if "has_data" in self.mapping.columns:
-            has_data = self.mapping["has_data"].values
+            has_data = self.mapping["has_data"].copy()
         else:
             has_data = np.full(len(self.mapping), False)
+            has_data = pd.Series(data=has_data, index=self.mapping.index) 
 
         for element in self.mapping.iloc[start:stop].itertuples():
             block_number = element[0]
@@ -263,9 +264,11 @@ class BlockAnalysis(Sequence):
                     if optimize_theta:
                         spectrum.optimize_theta()
 
+
+                    spectrum.set_energy_binning(np.logspace(np.log10(200), np.log10(50000), 13))
+
                     if optimize_ebinning:
                         spectrum.optimize_ebinning(sigma_threshold=1.3, min_counts_per_bin=10)
-                    spectrum.set_energy_binning(np.logspace(np.log10(200), np.log10(50000), 13))
 
                     spectrum.calc_differential_spectrum(efunc=efunc, force_calc=force, cut=cut)
 
@@ -280,6 +283,7 @@ class BlockAnalysis(Sequence):
                 except ValueError as err:
                     print(err)
                     print("Please check whats going on")
+                    has_data[block_number] = False
 
         self.mapping["has_data"] = has_data
 
