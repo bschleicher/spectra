@@ -52,7 +52,7 @@ def calc_onoffhisto(data,
 
     if cut is not None:
         if hasattr(cut, '__call__'):
-            data = data.loc[data.apply(cut, axis=1)].copy()
+            data = data.loc[cut(data).values].copy()
         else:
             raise ValueError('Cut is not callable, please check if it is a function of DataFrame columns')
 
@@ -71,12 +71,11 @@ def calc_onoffhisto(data,
 
     if data["ThetaSquared.fVal"].min() < thetasq:
         try:
-            data['theta'] = pd.cut(data["ThetaSquared.fVal"], [0, thetasq, 10], labels=["source", "notsource"],
-                                   include_lowest=True)
 
-            source_data = data.groupby('theta').get_group("source")
-            on_data = source_data.groupby("DataType.fVal").get_group(1.0)
-            off_data = source_data.groupby("DataType.fVal").get_group(0.0)
+            source_data = data.loc[np.less_equal(data["ThetaSquared.fVal"].values, 0.07)]
+            select = source_data["DataType.fVal"].values.astype(np.bool)
+            on_data = source_data.loc[select]
+            off_data = source_data.loc[np.bitwise_not(select)]
 
             if slope_goal is None:
                 weights_on = np.ones(len(on_data))
@@ -103,18 +102,27 @@ def calc_onoffhisto(data,
                                                    on_data["energy"].values),
                                                   bins=(zdbins, ebins, ebins))
 
-            on_thetasq = np.histogram(data.groupby("DataType.fVal").get_group(1.0)["ThetaSquared.fVal"],
-                                      bins=40, range=(0.0, 0.3))
-            off_thetasq = np.histogram(data.groupby("DataType.fVal").get_group(0.0)["ThetaSquared.fVal"],
-                                       bins=40, range=(0.0, 0.3))
+            datr = data[["DataType.fVal", "ThetaSquared.fVal"]]
+            select = datr["DataType.fVal"].values.astype(np.bool)
+            on_thetasq = np.histogram(datr.loc[select]["ThetaSquared.fVal"].values,
+                                      bins=40,
+                                      range=(0.0, 0.3))
+            off_thetasq = np.histogram(datr.loc[np.bitwise_not(select)]["ThetaSquared.fVal"].values,
+                                       bins=40,
+                                       range=(0.0, 0.3))
+
         except:
-            print(err)
             on_histo = np.zeros([len(zdbins)-1, len(ebins)-1])
             off_histo = np.zeros([len(zdbins)-1, len(ebins)-1])
-            on_thetasq = np.histogram(data.groupby("DataType.fVal").get_group(1.0)["ThetaSquared.fVal"],
-                                      bins=40, range=(0.0, 0.3))
-            off_thetasq = np.histogram(data.groupby("DataType.fVal").get_group(0.0)["ThetaSquared.fVal"],
-                                       bins=40, range=(0.0, 0.3))
+
+            datr = data[["DataType.fVal", "ThetaSquared.fVal"]]
+            select = datr["DataType.fVal"].values.astype(np.bool)
+            on_thetasq = np.histogram(datr.loc[select]["ThetaSquared.fVal"].values,
+                                      bins=40,
+                                      range=(0.0, 0.3))
+            off_thetasq = np.histogram(datr.loc[np.bitwise_not(select)]["ThetaSquared.fVal"].values,
+                                       bins=40,
+                                       range=(0.0, 0.3))
 
     if energy_function2 is not None:
         return np.array([on_histo, off_histo]), [on_thetasq, off_thetasq], energy_migration[0]
