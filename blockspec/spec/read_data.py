@@ -88,12 +88,12 @@ def calc_onoffhisto(data,
                 weights_on = np.power(on_data["MMcEvt.MMcEvtBasic.fEnergy"].values, exponent) * factor
                 weights_off = np.power(off_data["MMcEvt.MMcEvtBasic.fEnergy"].values, exponent) * factor
 
-            on_histo = np.histogram2d(on_data["MPointingPos.fZd"],
-                                      on_data["energy"],
+            on_histo = np.histogram2d(on_data["MPointingPos.fZd"].values,
+                                      on_data["energy"].values,
                                       bins=[zdbins, ebins],
                                       weights=weights_on)[0]
-            off_histo = np.histogram2d(off_data["MPointingPos.fZd"],
-                                       off_data["energy"],
+            off_histo = np.histogram2d(off_data["MPointingPos.fZd"].values,
+                                       off_data["energy"].values,
                                        bins=[zdbins, ebins],
                                        weights=weights_off)[0]
 
@@ -108,8 +108,14 @@ def calc_onoffhisto(data,
             off_thetasq = np.histogram(data.groupby("DataType.fVal").get_group(0.0)["ThetaSquared.fVal"],
                                        bins=40, range=(0.0, 0.3))
         except:
+            print(err)
             on_histo = np.zeros([len(zdbins)-1, len(ebins)-1])
             off_histo = np.zeros([len(zdbins)-1, len(ebins)-1])
+            on_thetasq = np.histogram(data.groupby("DataType.fVal").get_group(1.0)["ThetaSquared.fVal"],
+                                      bins=40, range=(0.0, 0.3))
+            off_thetasq = np.histogram(data.groupby("DataType.fVal").get_group(0.0)["ThetaSquared.fVal"],
+                                       bins=40, range=(0.0, 0.3))
+
     if energy_function2 is not None:
         return np.array([on_histo, off_histo]), [on_thetasq, off_thetasq], energy_migration[0]
     return np.array([on_histo, off_histo]), [on_thetasq, off_thetasq]

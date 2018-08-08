@@ -309,15 +309,23 @@ class Spectrum:
             bin_edges_energy = [int(on_data.iloc[0].energy) + 1, min_energy]
 
             length = len(on_data)
-            for i in tqdm(range(length)):
-                calc_and_append()
+            if length > 1:
+                for i in tqdm(range(length)):
+                    calc_and_append()
+            else:
+                print("Only {} events, skipping bin optimization".format(length))
+                bin_edges_energy = self.energy_binning
         else:
             bin_edges = [0]
             bin_edges_energy = [int(on_data.iloc[0].energy) + 1]
 
             length = len(on_data)
-            for i in tqdm(range(length)):
-                calc_and_append()
+            if length > 1:
+                for i in tqdm(range(length)):
+                    calc_and_append()
+            else:
+                print("Only {} events, skipping bin optimization".format(length))
+                bin_edges_energy = self.energy_binning
 
         print(bin_edges_energy)
         self.energy_binning = np.array(np.sort(bin_edges_energy), dtype=np.float)
