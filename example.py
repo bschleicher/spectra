@@ -90,13 +90,13 @@ def forest_energy(gamma_on):
     return predicted
 
 def cut(x):
-    return x['MHillas.fSize'] > 200
+    return x['MHillas.fSize'] > 125
 
-spectrum.set_theta_square(0.04)
+# spectrum.set_theta_square(0.04)
 spectrum.optimize_theta()
 #spectrum.optimize_ebinning(min_counts_per_bin=10, sigma_threshold=3)
-spectrum.set_energy_binning(np.logspace(np.log10(200), np.log10(50000), 13))
-spectrum.set_zenith_binning(np.linspace(0, 60, 31))
+spectrum.set_energy_binning(np.logspace(np.log10(200), np.log10(50000), 201))
+spectrum.set_zenith_binning(np.linspace(0, 60, 121))
 spectrum.set_correction_factors(False)
 spec = spectrum.calc_differential_spectrum(use_multiprocessing=True,
                                     efunc=forest_energy_impact,
@@ -116,7 +116,15 @@ plt.show()
 second = Spectrum()
 second.load(path)
 
+from blockspec.block.fitting import fit_ll
+
+fit = fit_ll(second, model='powerlaw')
+print(fit)
+
+n = np.sum(0.2 * second.off_histo_zenith > 0)
+
 second.plot_flux(hess_flare=True)
 second.plot_thetasq()
 
 plt.show()
+

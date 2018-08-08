@@ -63,7 +63,8 @@ def calc_num_mc_entries_hd5(ebins, zdbins, path, slope_goal=None):
         histo = make_hist(part1, [zdbins, ebins], np.ones(len(part1)) * 4 * weights_part1)
         histo += make_hist(part2, [zdbins, ebins], np.ones(len(part2)) * weights_part2)
         parts.append(histo)
-    return np.sum(np.array(parts), axis=0)
+        summed = np.sum(np.array(parts), axis=0).copy()
+    return summed
 
 
 def calc_a_eff_parallel_hd5(ebins,

@@ -49,6 +49,13 @@ def conf_from_sample(sample, func, conf_low=16, conf_up=84, minx=750, maxx=50000
     return x, mid, low, up
 
 
+def _get_fraction_at_boundaries(samples, bounds, j):
+    bounds = np.array(bounds)
+    samples = np.array(samples)
+    return np.sum(samples[..., j] < bounds[j, 0] + 0.2 * (bounds[j, 1] - bounds[j, 0])) / (
+        samples.shape[0] * samples.shape[1])
+
+
 def line(x, a, b):
     return a - b * x
 
@@ -141,6 +148,9 @@ class BlockAnalysis(Sequence):
                 print("Loading spectral data succeeded.")
             except FileNotFoundError:
                 print("Loading spectral data failed. File not found.")
+            except IndexError as err:
+                print(err)
+                print("No Data yet.")
 
     def __getitem__(self, i):
         return self.mapping.iloc[i], self.spectra[i]
@@ -178,7 +188,7 @@ class BlockAnalysis(Sequence):
         self.load_fits()
         self.load_spectral_data()
         if load_fit_samples:
-            npzfile = np.load(self.basepath+ "blocks/fit_samples.npz")
+            npzfile = np.load(self.basepath + "blocks/fit_samples.npz")
             for variable in self.list_to_save_as_np:
                 setattr(self, variable, npzfile[variable])
 
@@ -572,15 +582,45 @@ class BlockAnalysis(Sequence):
         df = self._prepare_fit_result_df(params, block_numbers, name, names)
         self._add_to_fit_results(df)
 
+        # Calculate the confidence intervals from the samples
+        # Save likelihood values and the fraction of events close to the boundaries of parameter 1 (index)
+        # to use it as quality metrics of the fit.
+
+        conf_low = 16
+        conf_up = 84
+
         ll_confs = []
+        likelihoods = []
+        fractions = []
+        j = 1
         for i in self.ll_dicts:
-            if i["samples"] is not None:
-                ll_confs.append(conf_from_sample(i["samples"][:, 150:, :], model))
+            samples = i["samples"]
+            if samples is not None:
+                ll_confs.append(conf_from_sample(samples[:, 150:, :], model, conf_low=conf_low, conf_up=conf_up))
+                fractions.append(_get_fraction_at_boundaries(samples, bounds, j)) # j is the j-s parameter of the model function
+                likelihoods.append(np.percentile(i["lnprobability"], [50, conf_low, conf_up]))
+
             else:
                 ll_confs.append(None)
+                likelihoods.append(None)
+                fractions.append(None)
+
+        likelihoods = np.array(likelihoods)
+
+        lll = ["val", "up", "low"]
+
+        dfl = pd.DataFrame(likelihoods,
+                          index=block_numbers,
+                          columns=[[name] * len(lll), ["lnprobability"] * len(lll), lll])
+        dfx = pd.DataFrame(fractions, index=block_numbers, columns=[[name], ["fraction"], ["val"]])
+
+        self._add_to_fit_results(dfl)
+        self._add_to_fit_results(dfx)
+
         self.ll_confs = ll_confs
 
         return df
+
 
     def plot_ll_corner(self, name=None, name_prefix=None, plot_theta_sq=False, plot_flux=False):
         if name is not None:

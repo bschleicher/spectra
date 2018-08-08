@@ -101,7 +101,7 @@ def calc_onoffhisto(data,
                 energy_migration = np.histogramdd((on_data["MPointingPos.fZd"].values,
                                                    on_data["energy2"].values,
                                                    on_data["energy"].values),
-                                                   bins=(zdbins, ebins, ebins))
+                                                  bins=(zdbins, ebins, ebins))
 
             on_thetasq = np.histogram(data.groupby("DataType.fVal").get_group(1.0)["ThetaSquared.fVal"],
                                       bins=40, range=(0.0, 0.3))

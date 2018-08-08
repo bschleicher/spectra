@@ -29,7 +29,7 @@ def cutoff_powerlaw_model(bounds=None, labels=None, names=None, pivot=1000, star
         return k * np.exp(log_thing)
 
     if bounds is None:
-        bounds = [[10**(-4), 10**(4)], [-8, 1], [0.5, 300]]
+        bounds = [[10**(-4), 10**(4)], [-7, 1], [0.5, 300]]
     if labels is None:
         labels = ["$\Phi$ [$10^{-11} cm^{-2}s^{-1}TeV^{-1}$]", "$\Gamma$", "$E_c$ [$TeV$]"]
     if names is None:
@@ -99,17 +99,20 @@ def fit_ll(spect,
         return np.sum(Tjki, axis=1)
 
     def log_like_zd_e(A):
-        start = 1
+        start = 0
         stop = None
         y = spect.on_histo_zenith[:, start:stop]
         bsim = 0.2 * spect.off_histo_zenith[:, start:stop]
         ysim = countssim_zd_e(A)[:, start:stop] + bsim
 
-        # mask = ysim > 0
-        mask2 = (bsim > 0) & (ysim > 0)
+        mask = ysim > 0
+        mask2 =  (ysim > 0) & (bsim > 0)  # & (y > 0)
         b = np.sum(y[mask2] * np.log(bsim[mask2]) - bsim[mask2])
+        # b = np.sum(y[mask2] * np.log(y[mask2]) - y[mask2]) #  using this instead of background estimation
+                                    # should lead to a value close to a chi square values as goodness of fit.
         s = np.sum(y[mask2] * np.log(ysim[mask2]) - ysim[mask2])  # - np.log(factorial(y))
-        return s - b
+        s2 = np.sum(y[mask2] * np.log(ysim[mask2]) - ysim[mask2])
+        return 2 * (s - b)
 
     bounds = np.array(bounds)
 
