@@ -105,13 +105,13 @@ def fit_ll(spect,
         bsim = 0.2 * spect.off_histo_zenith[:, start:stop]
         ysim = countssim_zd_e(A)[:, start:stop] + bsim
 
-        mask = ysim > 0
+        # mask = ysim > 0
         mask2 =  (ysim > 0) & (bsim > 0)  # & (y > 0)
         b = np.sum(y[mask2] * np.log(bsim[mask2]) - bsim[mask2])
         # b = np.sum(y[mask2] * np.log(y[mask2]) - y[mask2]) #  using this instead of background estimation
                                     # should lead to a value close to a chi square values as goodness of fit.
         s = np.sum(y[mask2] * np.log(ysim[mask2]) - ysim[mask2])  # - np.log(factorial(y))
-        s2 = np.sum(y[mask2] * np.log(ysim[mask2]) - ysim[mask2])
+        # s2 = np.sum(y[mask2] * np.log(ysim[mask2]) - ysim[mask2])
         return 2 * (s - b)
 
     bounds = np.array(bounds)
