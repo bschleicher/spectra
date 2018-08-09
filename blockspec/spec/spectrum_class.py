@@ -192,6 +192,8 @@ class Spectrum:
 
         self.energy_function = None
 
+        self._effective_area_recently_set = False
+
         self.stats = {}
 
     ##############################################################
@@ -433,6 +435,12 @@ class Spectrum:
         self.effective_area, self.effective_area_err, self.energy_migration = areas
         return self.effective_area, self.effective_area_err
 
+    def set_effective_area(self, area_and_mig):
+        """ Function to set the effective area. area_and_mig must be a tuple or list of the following order:
+            effective area, error of effective area, energy_migration matrice and binning [ebins, zdbins]."""
+        self.effective_area, self.effective_area_err, self.energy_migration = area_and_mig
+        self._effective_area_recently_set = True
+
     def calc_differential_spectrum(self,
                                    use_multiprocessing=True,
                                    efunc=None,
@@ -452,7 +460,8 @@ class Spectrum:
             self.calc_on_off_histo(cut=cut)
 
         if (self.effective_area is None) or force_calc:
-            self.calc_effective_area(slope_goal=slope_goal, cut=cut)
+            if not self._effective_area_recently_set:
+                self.calc_effective_area(slope_goal=slope_goal, cut=cut)
 
         bin_centers = np.power(10, (np.log10(self.energy_binning[1:]) + np.log10(self.energy_binning[:-1])) / 2)
         bin_width = self.energy_binning[1:] - self.energy_binning[:-1]

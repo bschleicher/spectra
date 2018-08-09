@@ -14,6 +14,7 @@ from blockspec.spec import Spectrum
 from blockspec.spec.plotting import plot_spectrum
 from blockspec.spec.spectrum_class import load_variables_from_json, save_variables_to_json
 from blockspec.block.fitting import fit_ll, fit_points, powerlaw_model, cutoff_powerlaw_model, line_model
+from blockspec.spec.calc_a_eff_parallel import calc_a_eff_parallel_hd5
 
 import matplotlib.pyplot as plt
 
@@ -219,6 +220,8 @@ class BlockAnalysis(Sequence):
                     correction_factors=False,
                     optimize_theta=False,
                     optimize_ebinning=True,
+                    ebins=None,
+                    zdbins=None,
                     start=None,
                     stop=None,
                     force=False,
@@ -229,6 +232,16 @@ class BlockAnalysis(Sequence):
         else:
             has_data = np.full(len(self.mapping), False)
             has_data = pd.Series(data=has_data, index=self.mapping.index) 
+
+        if ebins is None:
+            ebins = np.logspace(np.log10(200), np.log10(50000), 13)
+        if zdbins is None:
+            zdbins = np.linspace(0, 60, 15)
+        areas = None
+        if not optimize_theta and not optimize_ebinning:
+            areas = calc_a_eff_parallel_hd5(ebins, zdbins, correction_factors, theta_sq, path=self.ganymed_mc,
+                                            list_of_hdf_ceres_files=self.ceres_list, energy_function=efunc,
+                                            slope_goal=None, impact_max=54000.0, cut=cut)
 
         for element in self.mapping.iloc[start:stop].itertuples():
             block_number = element[0]
@@ -264,11 +277,14 @@ class BlockAnalysis(Sequence):
                     if optimize_theta:
                         spectrum.optimize_theta()
 
-
-                    spectrum.set_energy_binning(np.logspace(np.log10(200), np.log10(50000), 13))
+                    spectrum.set_zenith_binning(zdbins)
+                    spectrum.set_energy_binning(ebins)
 
                     if optimize_ebinning:
                         spectrum.optimize_ebinning(sigma_threshold=1.3, min_counts_per_bin=10)
+
+                    if areas is not None:
+                        spectrum.set_effective_area(areas)
 
                     spectrum.calc_differential_spectrum(efunc=efunc, force_calc=force, cut=cut)
 
@@ -454,7 +470,7 @@ class BlockAnalysis(Sequence):
         self.mapping["flux5up"] = self.tfitvalues2[12] - self.mapping.flux5
         self.mapping["flux5low"] = self.mapping.flux5 - self.tfitvalues2[10]
 
-    def _fit(self, fit_function, model=None, start_values=None, bounds=None, names=None, labels=None, *fitargs, **kwargs):
+    def _fit(self, fit_function, model=None, start_values=None, bounds=None, names=None, labels=None, **kwargs):
         block_numbers = []
         paramvalues = []
         dicts = []

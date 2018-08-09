@@ -3,6 +3,8 @@ import numpy as np
 
 from blockspec.spec import Spectrum
 
+from blockspec.spec.calc_a_eff_parallel import calc_a_eff_parallel_hd5
+
 # Monte Carlo simulated events:
 ceres_list = []
 
@@ -92,11 +94,21 @@ def forest_energy(gamma_on):
 def cut(x):
     return x['MHillas.fSize'] > 125
 
-# spectrum.set_theta_square(0.04)
-spectrum.optimize_theta()
+ebins = np.logspace(np.log10(200), np.log10(50000), 21)
+zdbins = np.linspace(0, 60, 21)
+
+# areas = calc_a_eff_parallel_hd5(ebins, zdbins, False,
+#                                0.04, path=ganymed_mc, list_of_hdf_ceres_files=ceres_list,
+#                                energy_function=forest_energy_impact, slope_goal=None, impact_max=54000.0,
+ #                               cut=cut)
+# spectrum.set_effective_area(areas)
+spectrum.set_theta_square(0.04)
+# spectrum.optimize_theta()
+
+
 #spectrum.optimize_ebinning(min_counts_per_bin=10, sigma_threshold=3)
-spectrum.set_energy_binning(np.logspace(np.log10(200), np.log10(50000), 201))
-spectrum.set_zenith_binning(np.linspace(0, 60, 121))
+spectrum.set_energy_binning(ebins)
+spectrum.set_zenith_binning(zdbins)
 spectrum.set_correction_factors(False)
 spec = spectrum.calc_differential_spectrum(use_multiprocessing=True,
                                     efunc=forest_energy_impact,
