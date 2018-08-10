@@ -72,7 +72,7 @@ def calc_onoffhisto(data,
     if data["ThetaSquared.fVal"].min() < thetasq:
         try:
 
-            source_data = data.loc[np.less_equal(data["ThetaSquared.fVal"].values, 0.07)]
+            source_data = data.loc[np.less_equal(data["ThetaSquared.fVal"].values, thetasq)]
             select = source_data["DataType.fVal"].values.astype(np.bool)
             on_data = source_data.loc[select]
             off_data = source_data.loc[np.bitwise_not(select)]
