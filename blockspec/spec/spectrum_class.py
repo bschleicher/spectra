@@ -152,8 +152,7 @@ class Spectrum:
         else:
             self.zenith_binning = np.linspace(0, 60, 15)
 
-        if ganymed_file_data:
-            self.ganymed_file_data = ganymed_file_data
+        self.ganymed_file_data = ganymed_file_data
 
         self.energy_center = None
         self.energy_error = None
@@ -249,7 +248,7 @@ class Spectrum:
                          'MHillas.fSize', 'ThetaSquared.fVal', 'MNewImagePar.fLeakage2',
                          'MHillas.fLength', 'MHillas.fWidth']
         data = read_mars(self.ganymed_file_data, leaf_names=select_leaves)
-        data = data.assign(energy=energy_function)
+        data["energy"] = energy_function(data)
         return data
 
     def optimize_theta(self):
@@ -356,7 +355,7 @@ class Spectrum:
         print("On Time per ZD:", self.on_time_per_zd)
         return self.on_time_per_zd
 
-    def calc_on_off_histo(self, ganymed_file=None, cut=None):
+    def calc_on_off_histo(self, ganymed_file=None, cut=None, use_multiprocessing=True):
         select_leaves = ['DataType.fVal', 'MPointingPos.fZd', 'FileId.fVal', 'MTime.fMjd', 'MTime.fTime.fMilliSec',
                          'MTime.fNanoSec', 'MHillas.fSize', 'ThetaSquared.fVal', 'MNewImagePar.fLeakage2',
                          'MHillas.fWidth', 'MHillasSrc.fDist', 'MHillasExt.fM3Long',
@@ -368,12 +367,21 @@ class Spectrum:
         if ganymed_file:
             self.ganymed_file_data = ganymed_file
 
-        if not self.ganymed_file_data:
+        if self.ganymed_file_data is None:
+            leafs = select_leaves.copy()
+            leafs.remove('DataType.fVal')
+            leafs.remove('FileId.fVal')
+            leafs.remove('ThetaSquared.fVal')
+            leafs.remove('MPointingPos.fZd')
+
             histos = histos_from_list_of_mars_files(self.run_list_star,
-                                                    select_leaves,
+                                                    leafs,
                                                     self.zenith_binning,
                                                     self.energy_binning,
-                                                    self.theta_square)
+                                                    self.theta_square,
+                                                    efunc=self.energy_function,
+                                                    cut_function=cut,
+                                                    use_multiprocessing=use_multiprocessing)
         else:
             data_cut = read_mars(self.ganymed_file_data, leaf_names=select_leaves)
             histos = calc_onoffhisto(data_cut,
@@ -457,7 +465,7 @@ class Spectrum:
             self.calc_ontime(use_multiprocessing=use_multiprocessing, force_calc=force_calc)
 
         if (self.on_histo is None) or force_calc:
-            self.calc_on_off_histo(cut=cut)
+            self.calc_on_off_histo(cut=cut, use_multiprocessing=use_multiprocessing)
 
         if (self.effective_area is None) or force_calc:
             if not self._effective_area_recently_set:

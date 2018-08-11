@@ -17,28 +17,75 @@ def read_data_and_bg_cut(entry, tree_name, leafs, cut_function=None):
 
     return temp
 
+def calc_time(x, time_name):
+    return x[time_name + ".fMjd"] + (x[time_name + ".fTime.fMilliSec"] + x[
+                      time_name + ".fNanoSec"] / (1000 * 1000)) / (1000 * 60 * 60 * 24)
 
-def read_and_select_data(entry, tree_name, leafs, zdbinsr, ebinsr, thetasqr):
-    temp = read_data_and_bg_cut(entry, tree_name, leafs)
+def calc_zd_for_star_file(events, star_file):
+    select_leaves_drive = ["MTimeDrive.fMjd", "MTimeDrive.fTime.fMilliSec", "MTimeDrive.fNanoSec",
+                           "MReportDrive.fNominalZd"]
+    drive = read_mars.read_mars(star_file, tree='Drive', leaf_names=select_leaves_drive)
+    drive["time"] = calc_time(drive, 'MTimeDrive').values
+    event_times = calc_time(events, 'MTime').values
+    return drive["MReportDrive.fNominalZd"][
+        np.argmin(np.abs(drive["time"].values[:, np.newaxis] - event_times), axis=0)].values
 
-    return calc_onoffhisto(temp, zdbinsr, ebinsr, thetasqr)
+def disp(data):
+    mm2deg = (180 / np.pi) / (4.889 * 1000)
+    xi = 1.39252 + 0.154247 * (
+    data["MHillasExt.fSlopeLong"] * np.sign(data["MHillasSrc.fCosDeltaAlpha"]) / mm2deg) + 1.67972 * (
+    1 - (1 / (1 + 4.86232 * data['MNewImagePar.fLeakage1'])))
+    blubb = xi * (1 - np.divide(data['MHillas.fWidth'], data['MHillas.fLength']))
+
+    sign1 = (data["MHillasExt.fM3Long"] * (np.sign(data["MHillasSrc.fCosDeltaAlpha"]) * mm2deg)) < -0.07
+
+    sign2 = (data["MHillasExt.fSlopeLong"] * (np.sign(data["MHillasSrc.fCosDeltaAlpha"]) / mm2deg)) > (
+    (data["MHillasSrc.fDist"] * mm2deg - 0.5) * 7.2)
+
+    sign = np.logical_or(sign1.values, sign2.values)
+    blubb = sign * blubb + np.logical_not(sign) * -blubb
+    blubb *= np.sign(data["MHillasSrc.fCosDeltaAlpha"])
+    return blubb.values
 
 
-def histos_from_list_of_mars_files(file_list, leaf_names, zdbins, ebins, thetasq):
-    file_list = [entry.strip().replace(" ", "/").replace("star", "ganymed_run").replace("_I", "-summary") for entry in
+
+def read_and_select_data(entry, tree_name, leafs, zdbinsr, ebinsr, thetasqr, efunc, cut_function):
+    temp = read_mars.read_mars(entry, tree=tree_name, leaf_names=leafs)
+    temp["MPointingPos.fZd"] = calc_zd_for_star_file(temp, entry)
+    return calc_onoffhisto(temp, zdbinsr, ebinsr, thetasqr, energy_function=efunc, cut=cut_function)
+
+
+def histos_from_list_of_mars_files(file_list, leaf_names, zdbins, ebins, thetasq,
+                                   efunc=None, cut_function=None, use_multiprocessing=True):
+    file_list = [entry.strip().replace(" ", "/") for entry in
                  file_list if not entry.startswith('#')]
-    leaf_names.append('MHillas.fLength')
-    leaf_names.append('MHillas.fWidth')
-    histos = np.zeros([2, len(zdbins)-1, len(ebins)-1])
-    pool = Pool()
-    result = [pool.apply_async(read_and_select_data, args=(file_list[i], 'Events', leaf_names, zdbins,
-                                                           ebins, thetasq)) for i in range(len(file_list))]
-    pool.close()
-    pool.join()
-    for res in result:
-        histos += res.get()
 
-    return np.array(histos)
+    if use_multiprocessing:
+        parts = [[]] * len(file_list)
+        pool = Pool()
+        result = [pool.apply_async(read_and_select_data, args=(file_list[i], 'Events', leaf_names, zdbins,
+                                                       ebins, thetasq, efunc, cut_function)) for i in range(len(file_list))]
+        pool.close()
+        pool.join()
+
+        for i in range(len(file_list)):
+            parts[i] = result[i].get()
+    else:
+
+        parts = [read_and_select_data(file_list[i], 'Events', leaf_names, zdbins,
+                                                       ebins, thetasq, efunc, cut_function) for i in range(len(file_list))]
+
+    pew = np.array([0]), [[np.array[0], np.array[0]], [np.array[0], np.array[0]]]
+
+    for part in parts:
+        onoff, theta = part
+        pew[0] = pew[0] + onoff
+        pew[1][0] = pew[1][0][0] + theta[0][0]
+        pew[1][1] = pew[1][1][0] + theta[1][0]
+        pew[1][0][1] = theta[0][1]
+        pew[1][1][1] = theta[1][1]
+
+    return pew
 
 
 def calc_onoffhisto(data,
@@ -48,7 +95,8 @@ def calc_onoffhisto(data,
                     energy_function=None,
                     slope_goal=None,
                     energy_function2=None,
-                    cut=None):
+                    cut=None,
+                    is_star_file=False):
 
     if cut is not None:
         if hasattr(cut, '__call__'):
@@ -62,18 +110,20 @@ def calc_onoffhisto(data,
                              (0.77 / np.cos((x["MPointingPos.fZd"] * 1.35 * np.pi) / 360))) +
                     x["MNewImagePar.fLeakage2"] * 13000)
     data = data.dropna().copy()
-    data = data.assign(energy=energy_function)
+    data["energy"] = energy_function(data)
     if energy_function2 is not None:
-        data = data.assign(energy2=energy_function2)
+        data["energy2"] = energy_function2(data)
 
     on_histo = np.zeros([len(zdbins)-1, len(ebins)-1])
     off_histo = np.zeros([len(zdbins)-1, len(ebins)-1])
 
     if data["ThetaSquared.fVal"].min() < thetasq:
         try:
-
-            source_data = data.loc[np.less_equal(data["ThetaSquared.fVal"].values, thetasq)]
-            select = source_data["DataType.fVal"].values.astype(np.bool)
+            if is_star_file:
+                pass
+            else:
+                source_data = data.loc[np.less_equal(data["ThetaSquared.fVal"].values, thetasq)]
+                select = source_data["DataType.fVal"].values.astype(np.bool)
             on_data = source_data.loc[select]
             off_data = source_data.loc[np.bitwise_not(select)]
 
