@@ -304,6 +304,9 @@ int process(MDirIter &files, const char *outfile, Float_t ra, Float_t dec, Bool_
     //tlist2.AddToList(&energyest); // from energy estimation
     tlist2.AddToList(write0);
     tlist2.AddToList(&cont0);  // Post/Pre shown cuts
+
+    tlist2.AddToList(write1);
+
     tlist2.AddToList(&cont1);  // Calculate ThetaSq
     tlist2.AddToList(&fill2a);
     tlist2.AddToList(&ftheta); // Calculate theta Cut
@@ -323,7 +326,7 @@ int process(MDirIter &files, const char *outfile, Float_t ra, Float_t dec, Bool_
     tlist2.AddToList(&fill7a);
     tlist2.AddToList(&cont3);
 
-    tlist2.AddToList(write1);
+
 
 
     MPointingPosCalc pcalc;
