@@ -92,8 +92,8 @@ int process(MDirIter &files, const char *outfile, Float_t ra, Float_t dec, Bool_
     TArrayD param(11);
     // Parametrization of Disp
     // for new cleaning
-    param[0]  =  1.39252;  // constant
-    param[8]  =  0.154247; // slope
+    param[0]  =  1.34;  // constant
+    param[8]  =  0.755; // slope
     param[9]  =  1.67972;  // leak
     param[10] =  4.86232;  // leak
     // for old cleaning
