@@ -6,11 +6,10 @@ import numpy as np
 def powerlaw_model(bounds=None, labels=None, names=None, start_values=None):
 
     def powerlaw(x, k, gamma):
-        k = k*10**(-11)
         return k*np.power(x/1000, gamma)  # * np.exp(np.divide(x, 6000))
 
     if bounds is None:
-        bounds = [[10**(-4), 10**(4)], [-8, 1]]
+        bounds = [[10**(-20), 10**(-5)], [-8, 1]]
     if labels is None:
         labels = ["$\Phi$ [$10^{-11} cm^{-2}s^{-1}TeV^{-1}$]", "$\Gamma$"]
     if names is None:
@@ -61,6 +60,40 @@ def _parameter_values_from_samples(samples):
     return parameters
 
 
+def _countssim_zd_e(spect, spec_function, A):
+    bin_width = (spect.energy_binning[1:] - spect.energy_binning[:-1]) / 1000
+    emig = np.ma.divide(spect.energy_migration, spect.energy_migration.sum(axis=2)[:, :, np.newaxis])
+    emig = emig.filled(0)
+    sim_flux = spec_function(spect.energy_center, *A)
+    Tjki = emig * (sim_flux * bin_width)[np.newaxis, :, np.newaxis]
+    Tjki = Tjki * spect.on_time_per_zd[:, np.newaxis, np.newaxis]
+    Tjki = Tjki * spect.effective_area[:, :, np.newaxis]
+    return np.sum(Tjki, axis=1)
+
+
+def _get_log_like_stats(spect, spec_function, A):
+    start = 4
+    stop = None
+    y = spect.on_histo_zenith[:, start:stop]
+    bsim = 0.2 * spect.off_histo_zenith[:, start:stop]
+
+    ysim = _countssim_zd_e(spect, spec_function, A)[:, start:stop] + bsim
+
+    mask = (ysim > 0) & (y > 0)
+    mask2 =  (ysim > 0) & (bsim > 0)  # & (y > 0)
+    mask3 = ysim>0
+    s_bg = np.sum(y[mask2] * np.log(ysim[mask2]) - ysim[mask2])
+    b_bg = np.sum(y[mask2] * np.log(bsim[mask2]) - bsim[mask2])
+
+    s_sig = np.sum(y[mask] * np.log(ysim[mask]) - ysim[mask])
+    b_sig = np.sum(y[mask] * np.log(y[mask]) - y[mask]) #  using this instead of background estimation
+                                # should lead to a value close to a chi square values as goodness of fit.
+
+    s = np.sum(y[mask3] * np.log(ysim[mask3]) - ysim[mask3]) #Only signal (hard to interpret)
+
+    return np.array([s_bg - b_bg, np.sum(mask2), s_sig-b_sig, np.sum(mask), s, np.sum(mask3)])
+
+
 def fit_ll(spect,
            nwalkers=100,
            nsamples=500,
@@ -99,7 +132,7 @@ def fit_ll(spect,
         return np.sum(Tjki, axis=1)
 
     def log_like_zd_e(A):
-        start = 0
+        start = 4
         stop = None
         y = spect.on_histo_zenith[:, start:stop]
         bsim = 0.2 * spect.off_histo_zenith[:, start:stop]
