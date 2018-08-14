@@ -6,6 +6,7 @@ import json
 from subprocess import run
 from os import remove
 import multiprocessing as mp
+from multiprocessing import Pool
 from astropy.coordinates import SkyCoord
 from astropy.coordinates.name_resolve import NameResolveError
 import corner
@@ -14,6 +15,7 @@ from blockspec.spec import Spectrum
 from blockspec.spec.plotting import plot_spectrum
 from blockspec.spec.spectrum_class import load_variables_from_json, save_variables_to_json
 from blockspec.block.fitting import fit_ll, fit_points, powerlaw_model, cutoff_powerlaw_model, line_model
+from blockspec.block.fitting import _get_log_like_stats
 from blockspec.spec.calc_a_eff_parallel import calc_a_eff_parallel_hd5
 
 import matplotlib.pyplot as plt
@@ -50,11 +52,11 @@ def conf_from_sample(sample, func, conf_low=16, conf_up=84, minx=750, maxx=50000
     return x, mid, low, up
 
 
-def _get_fraction_at_boundaries(samples, bounds, j):
+def _get_fraction_at_boundaries(samples, bounds):
     bounds = np.array(bounds)
     samples = np.array(samples)
-    return np.sum(samples[..., j] < bounds[j, 0] + 0.2 * (bounds[j, 1] - bounds[j, 0])) / (
-        samples.shape[0] * samples.shape[1])
+    return np.array([np.sum(samples[..., j] < bounds[j, 0] + 0.2 * (bounds[j, 1] - bounds[j, 0])) / (
+        samples.shape[0] * samples.shape[1]) for j in (0, 1)])
 
 
 def line(x, a, b):
@@ -70,6 +72,13 @@ def blocks_from_json(filename):
     blocks.load(filename)
     return blocks
 
+
+def _wrap_one_fit(spect, which_block, i, fit_function, model=None, start_values=None, bounds=None, labels=None, names=None, **kwargs):
+    block_number = which_block[i]
+    result_dict = fit_function(spect, model=model, start_values=start_values, bounds=bounds, names=names, labels=labels,
+                               **kwargs)
+
+    return block_number, result_dict
 
 class BlockAnalysis(Sequence):
 
@@ -243,6 +252,8 @@ class BlockAnalysis(Sequence):
                                             list_of_hdf_ceres_files=self.ceres_list, energy_function=efunc,
                                             slope_goal=None, impact_max=54000.0, cut=cut)
 
+        spectra = []
+
         for element in self.mapping.iloc[start:stop].itertuples():
             block_number = element[0]
             filepath = element[1]
@@ -289,7 +300,7 @@ class BlockAnalysis(Sequence):
                     spectrum.calc_differential_spectrum(efunc=efunc, force_calc=force, cut=cut)
 
                     spectrum.save(path)
-                    self.spectra.append(spectrum)
+                    spectra.append(spectrum)
                     has_data[block_number] = True
 
                 except AttributeError as err:
@@ -301,6 +312,7 @@ class BlockAnalysis(Sequence):
                     print("Please check whats going on")
                     has_data[block_number] = False
 
+        self.spectra = spectra
         self.mapping["has_data"] = has_data
 
     def run_ganymed(self, index, path):
@@ -343,7 +355,7 @@ class BlockAnalysis(Sequence):
         else:
             selection = self.mapping.index.values
 
-        for element in self.mapping.iloc[selection].itertuples():
+        for element in self.mapping.loc[selection].itertuples():
             block_number = element[0]
             spect = Spectrum()
             path = self.spectrum_path + str(block_number) + ".json"
@@ -470,27 +482,51 @@ class BlockAnalysis(Sequence):
         self.mapping["flux5up"] = self.tfitvalues2[12] - self.mapping.flux5
         self.mapping["flux5low"] = self.mapping.flux5 - self.tfitvalues2[10]
 
-    def _fit(self, fit_function, model=None, start_values=None, bounds=None, names=None, labels=None, **kwargs):
+    def _fit(self, fit_function, use_multiprocessing=False, model=None, start_values=None,
+             bounds=None, names=None, labels=None, **kwargs):
+
         block_numbers = []
         paramvalues = []
         dicts = []
         verb = False
-        for i, spect in enumerate(tqdm(self.spectra)):
-            block_number = self.mapping[self.mapping["has_data"]].index.values[i]
-            block_numbers.append(block_number)
-            if verb:
-                print("################################################################")
-                print("block number", str(block_number))
-                print("################################")
-            result_dict = fit_function(spect,
-                                       model=model,
-                                       start_values=start_values,
-                                       bounds=bounds,
-                                       names=names,
-                                       labels=labels,
-                                       **kwargs)
-            dicts.append(result_dict)
-            paramvalues.append(result_dict["parameters"])
+
+        if use_multiprocessing:
+
+            which_block_list = self.mapping[self.mapping["has_data"]].index.values
+            pool = Pool()
+            result = [pool.apply_async(_wrap_one_fit,
+                                       args=(spect, which_block_list, i, fit_function, model, start_values,
+                                             bounds, labels, names)) for i, spect in enumerate(self.spectra)]
+            pool.close()
+            pool.join()
+
+            for i in range(len(self.spectra)):
+                block_number, result_dict = result[i].get()
+                block_numbers.append(block_number)
+                dicts.append(result_dict)
+                paramvalues.append(result_dict["parameters"])
+
+        else:
+
+            for i, spect in enumerate(tqdm(self.spectra)):
+
+                block_number = self.mapping[self.mapping["has_data"]].index.values[i]
+
+                if verb:
+                    print("################################################################")
+                    print("block number", str(block_number))
+                    print("################################")
+                result_dict = fit_function(spect,
+                                           model=model,
+                                           start_values=start_values,
+                                           bounds=bounds,
+                                           names=names,
+                                           labels=labels,
+                                           **kwargs)
+
+                block_numbers.append(block_number)
+                dicts.append(result_dict)
+                paramvalues.append(result_dict["parameters"])
 
         return block_numbers, paramvalues, dicts
 
@@ -511,6 +547,7 @@ class BlockAnalysis(Sequence):
             self.fit_results = pd.concat((self.fit_results, df), axis=1)
 
     def fit_loglog(self, name="linear_fit",
+                   use_multiprocessing=False,
                    model='line',
                    start_values=None,
                    bounds=None,
@@ -528,6 +565,7 @@ class BlockAnalysis(Sequence):
             raise ValueError("'model' must either be line or a function")
 
         block_numbers, paramvalues, dicts = self._fit(fit_points,
+                                                      use_multiprocessing=use_multiprocessing,
                                                       model=model,
                                                       start_values=start_values,
                                                       bounds=bounds,
@@ -563,6 +601,7 @@ class BlockAnalysis(Sequence):
 
     def fit_loglike(self,
                     name="ll_powerlaw",
+                    use_multiprocessing=False,
                     model='powerlaw',
                     start_values=None,
                     bounds=None,
@@ -571,10 +610,14 @@ class BlockAnalysis(Sequence):
                     **kwargs):
 
         if model == 'powerlaw':
-            model, start_values, bounds, labels, names = powerlaw_model(bounds=bounds, labels=labels, names=names)
+            model, start_values, bounds, labels, names = powerlaw_model(bounds=bounds,
+                                                                        labels=labels,
+                                                                        names=names)
 
         elif model == 'cutoff_powerlaw':
-            model, start_values, bounds, labels, names = cutoff_powerlaw_model(bounds=bounds, labels=labels, names=names)
+            model, start_values, bounds, labels, names = cutoff_powerlaw_model(bounds=bounds,
+                                                                               labels=labels,
+                                                                               names=names)
         elif hasattr(model, '__call__'):
 
             if None in (bounds, names, labels):
@@ -584,6 +627,7 @@ class BlockAnalysis(Sequence):
             raise ValueError("Model must be 'powerlaw', 'cutoff_powerlaw' or a function")
 
         block_numbers, paramvalues, dicts = self._fit(fit_ll,
+                                                      use_multiprocessing=use_multiprocessing,
                                                       model=model,
                                                       start_values=start_values,
                                                       bounds=bounds,
@@ -612,37 +656,46 @@ class BlockAnalysis(Sequence):
         ll_confs = []
         likelihoods = []
         fractions = []
-        j = 1
-        for i in self.ll_dicts:
-            samples = i["samples"]
+        ln_stats = []
+        for i, dic in enumerate(tqdm(self.ll_dicts)):
+            samples = dic["samples"]
             if samples is not None:
                 ll_confs.append(conf_from_sample(samples[:, 150:, :], model, conf_low=conf_low, conf_up=conf_up))
-                fractions.append(_get_fraction_at_boundaries(samples, bounds, j)) # j is the j-s parameter of the model function
-                likelihoods.append(np.percentile(i["lnprobability"], [50, conf_low, conf_up]))
-
+                fractions.append(_get_fraction_at_boundaries(samples, bounds))
+                likelihoods.append(np.percentile(dic["lnprobability"], [50, conf_low, conf_up]))
+                ln_stats.append(_get_log_like_stats(self.spectra[i], model, params[i, :, 0]))
             else:
                 ll_confs.append(None)
                 likelihoods.append(None)
                 fractions.append(None)
+                ln_stats.append(None)
 
         likelihoods = np.array(likelihoods)
+        ln_stats = np.array(ln_stats)
 
         lll = ["val", "up", "low"]
 
         dfl = pd.DataFrame(likelihoods,
-                          index=block_numbers,
-                          columns=[[name] * len(lll), ["lnprobability"] * len(lll), lll])
-        dfx = pd.DataFrame(fractions, index=block_numbers, columns=[[name], ["fraction"], ["val"]])
+                           index=block_numbers,
+                           columns=[[name] * len(lll), ["lnprobability"] * len(lll), lll])
+        dfx = pd.DataFrame(np.array(fractions),
+                           index=block_numbers,
+                           columns=[[name] * 2, ["fraction"] * 2, ["flux", "index"]])
+
+        ln_stat_names = ["bg_rel", "n_bg_rel", "sig_rel", "n_sig_rel", "s", "n_s"]
+        dflns = pd.DataFrame(ln_stats,
+                             index=block_numbers,
+                             columns=[[name] * 6, ["log_ln_stats"] * 6, ln_stat_names])
 
         self._add_to_fit_results(dfl)
         self._add_to_fit_results(dfx)
+        self._add_to_fit_results(dflns)
 
         self.ll_confs = ll_confs
 
         return df
 
-
-    def plot_ll_corner(self, name=None, name_prefix=None, plot_theta_sq=False, plot_flux=False):
+    def plot_ll_corner(self, name=None, name_prefix=None, plot_theta_sq=False, plot_flux=False, plot_confidence=False):
         if name is not None:
             to_pdf = True
             from matplotlib.backends.backend_pdf import PdfPages
@@ -650,13 +703,14 @@ class BlockAnalysis(Sequence):
         else:
             to_pdf = False
 
-        for i in range(len(self.ll_dicts)):
+        for i in tqdm(range(len(self.ll_dicts))):
 
             entry = self.ll_dicts[i]
             k = len(entry["labels"])
             block_number = self.mapping[self.mapping["has_data"]].index.values[i]
             samples = entry["samples"][:, 150:, :].reshape((-1, k))
-            plt.figure()
+            fig = plt.figure("ll_plot")
+            fig.clf()
             fig = corner.corner(samples,
                                 labels=entry["labels"],
                                 quantiles=[0.16, 0.5, 0.84],
@@ -665,10 +719,23 @@ class BlockAnalysis(Sequence):
             if plot_theta_sq or plot_flux:
                 fig.set_size_inches(5.5, 5.5)
                 fig.set_size_inches(10, 5.5)
-                fig.subplots_adjust(right=5.5 / 10)
+                fig.subplots_adjust(left=1/10,right=5.5 / 10)
                 if plot_theta_sq:
-                    ax = fig.add_axes([6 / 10, 0.15, 4 / 10, 0.4])
+                    ax = fig.add_axes([6 / 10, 0.10, 4 / 10, 0.3])
                     self.spectra[i].plot_thetasq(ax=ax)
+                if plot_flux:
+                    ax_sig = fig.add_axes([6 / 10, 0.5, 4 / 10, 0.15])
+                    ax_flux = fig.add_axes([6 / 10, 0.63, 4 / 10, 0.35])
+
+                    if plot_confidence:
+                        sample = ["loglog", "loglike"]
+                    else:
+                        sample = None
+
+                    self._plot_flux(i, ax_sig = ax_sig, ax_flux=ax_flux, sample=sample)
+
+                    ax_flux.get_shared_x_axes().join(ax_flux, ax_sig)
+                    ax_flux.set_xticklabels([])
 
             if name_prefix is not None:
                 plt.savefig(self.basepath + name_prefix + str(block_number) + ".png")
@@ -704,7 +771,6 @@ class BlockAnalysis(Sequence):
         else:
             raise ValueError("Shapes of group and key do not match.")
 
-
     def plot(self, x_group=None, x_key='time', y_group=None, y_key='flux', **kwargs):
         """ A wrapper function that allows to easily plot parameters of the fit results of the BlockAnalysis"""
 
@@ -721,12 +787,12 @@ class BlockAnalysis(Sequence):
             y_is_mapping = True
 
         elif x_group is None:
-            x_source = [self.mapping.iloc[self.fit_results.index]]
+            x_source = [self.mapping.loc[self.fit_results.index]]
             y_source = self._check_if_str_or_list_group(y_group)
             x_is_mapping = True
             y_is_mapping = False
         elif y_group is None:
-            y_source = [self.mapping.iloc[self.fit_results.index]]
+            y_source = [self.mapping.loc[self.fit_results.index]]
             x_source = self._check_if_str_or_list_group(x_group)
             x_is_mapping = False
             y_is_mapping = True
@@ -769,20 +835,20 @@ class BlockAnalysis(Sequence):
 
             plt.errorbar(x=x, y=y, xerr=xerr, yerr=yerr, **kwargs)
 
-    def _plot_conf_loglike(self, id):
+    def _plot_conf_loglike(self, id, ax):
         x, mid, low, up = self.ll_confs[id]
-        plt.plot(x, mid, label="Fit LogLike")
-        plt.fill_between(x, low, up, label="LogLike 68 % confidence", alpha=0.4)
+        ax.plot(x, mid, label="Fit LogLike")
+        ax.fill_between(x, low, up, label="LogLike 68 % confidence", alpha=0.4)
 
-    def _plot_conf_loglog(self, id):
+    def _plot_conf_loglog(self, id, ax):
         if self.loglog_confs[id] is not None:
             x, mid, low, up = self.loglog_confs[id]
-            plt.plot(x, mid, label="Fit Linear")
-            plt.fill_between(x, low, up, label="Linear 68 % confidence", alpha=0.4)
+            ax.plot(x, mid, label="Fit Linear")
+            ax.fill_between(x, low, up, label="Linear 68 % confidence", alpha=0.4)
 
     def _plot_flux(self, id, sample=None, ax_sig=None, ax_flux=None):
         block_number = self.fit_results.index.values[id]
-        self.spectra[id].plot_flux(crab_do=True,
+        ax_sig, ax_flux = self.spectra[id].plot_flux(crab_do=True,
                                              label=str(block_number) + ": " + self.mapping.time[block_number].strftime(
                                                  "%Y-%m-%d %H:%M"),
                                              ax_sig=ax_sig,
@@ -794,12 +860,12 @@ class BlockAnalysis(Sequence):
             if isinstance(sample, str):
                 sample = [sample]
             if 'loglike' in sample:
-                self._plot_conf_loglike(id)
+                self._plot_conf_loglike(id, ax_flux)
             if 'loglog' in sample:
-                self._plot_conf_loglog(id)
+                self._plot_conf_loglog(id, ax_flux)
 
         plt.legend()
-        plt.tight_layout()
+        # plt.tight_layout()
 
     def plot_fluxes(self, name=None):
 
