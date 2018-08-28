@@ -124,7 +124,19 @@ class BlockAnalysis(Sequence):
         self.source_ra = None
         self.source_deg = None
 
-        if source_name:
+        if source_name == 'Crab':
+            self.source_ra = 5.5755
+            self.source_deg = 22.0144
+
+        elif source_name == 'Mrk 501':
+            self.source_ra = 16.897867
+            self.source_deg = 39.760201
+
+        elif source_name == 'Mrk 421':
+            self.source_ra = 11.0742
+            self.source_deg = 38.2089
+
+        else:
             try:
                 source = SkyCoord.from_name(self.source_name)
                 self.source_ra = source.ra.hour
@@ -216,8 +228,15 @@ class BlockAnalysis(Sequence):
             self.mapping = pd.read_json(self.basepath + "blocks/mapping.json", precise_float=True)
             print("Mapping succesfully read.")
 
-        except ValueError:
-            print("Mapping file does not yet exist.")
+        except ValueError as err:
+            print(err)
+            print("mapping.json can not be read.")
+            try:
+                self.mapping = pd.read_pickle(self.basepath + "blocks/mapping.pkl")
+                print("Mapping successfully read.")
+            except ValueError as err:
+                print(err)
+                print("Mapping as pickle doesn't work either")
 
         if self.mapping is not None:
             self.calc_mapping_columns()
@@ -337,8 +356,13 @@ class BlockAnalysis(Sequence):
     def calc_mapping_columns(self):
         mapping = self.mapping.copy()
         mapping.sort_index(inplace=True)
-        start = pd.to_datetime(mapping.start, unit="ms")
-        stop = pd.to_datetime(mapping.stop, unit="ms")
+
+        if mapping["start"].dtype == 'O': # necessary for compatibility with pickle and json
+            unit = 'ns'
+        else:
+            unit = 'ms'
+        start = pd.to_datetime(mapping.start, unit=unit)
+        stop = pd.to_datetime(mapping.stop, unit=unit)
         mapping["start"] = start
         mapping["stop"] = stop
         mapping["time_err"] = (stop - start)/2
@@ -717,15 +741,26 @@ class BlockAnalysis(Sequence):
                                 show_titles=True,
                                 title_kwargs={"fontsize": 12})
             if plot_theta_sq or plot_flux:
-                fig.set_size_inches(5.5, 5.5)
-                fig.set_size_inches(10, 5.5)
-                fig.subplots_adjust(left=1/10,right=5.5 / 10)
+                width, height = 14,7
+                step, lm = 2, 0.1
+                fig.set_size_inches(width, height)
+                fig.subplots_adjust(left=lm,
+                                    right =(height-step)/width + lm,
+                                    top=(height-0.5*step)/height,
+                                    bottom=(0.5*step)/height)
+                left = (height - step) / width + 1.55 * lm
+                right = height / width - 0.21
+
                 if plot_theta_sq:
-                    ax = fig.add_axes([6 / 10, 0.10, 4 / 10, 0.3])
+                    ax = fig.add_axes([left, lm, right, 0.3])
                     self.spectra[i].plot_thetasq(ax=ax)
+                    plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
                 if plot_flux:
-                    ax_sig = fig.add_axes([6 / 10, 0.5, 4 / 10, 0.15])
-                    ax_flux = fig.add_axes([6 / 10, 0.63, 4 / 10, 0.35])
+                    ax_sig = fig.add_axes([left, 0.5, right, 0.13])
+                    ax_flux = fig.add_axes([left, 0.63, right, 0.32])
+
+                    ax_flux.get_shared_x_axes().join(ax_flux, ax_sig)
+                    ax_flux.set_xticklabels([])
 
                     if plot_confidence:
                         sample = ["loglog", "loglike"]
@@ -733,9 +768,8 @@ class BlockAnalysis(Sequence):
                         sample = None
 
                     self._plot_flux(i, ax_sig = ax_sig, ax_flux=ax_flux, sample=sample)
+                    plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
 
-                    ax_flux.get_shared_x_axes().join(ax_flux, ax_sig)
-                    ax_flux.set_xticklabels([])
 
             if name_prefix is not None:
                 plt.savefig(self.basepath + name_prefix + str(block_number) + ".png")
@@ -849,10 +883,14 @@ class BlockAnalysis(Sequence):
     def _plot_flux(self, id, sample=None, ax_sig=None, ax_flux=None):
         block_number = self.fit_results.index.values[id]
         ax_sig, ax_flux = self.spectra[id].plot_flux(crab_do=True,
-                                             label=str(block_number) + ": " + self.mapping.time[block_number].strftime(
-                                                 "%Y-%m-%d %H:%M"),
-                                             ax_sig=ax_sig,
-                                             ax_flux=ax_flux)
+                                                     label="{}: \nstart {} \n stop {}".format(block_number,
+                                                                           self.mapping['start'][block_number].strftime(
+                                                                            "%Y-%m-%d %H:%M"),
+                                                                           self.mapping['stop'][block_number].strftime(
+                                                                               "%Y-%m-%d %H:%M")),
+                                                     ax_sig=ax_sig,
+                                                     ax_flux=ax_flux)
+        ax_flux.set_ylim(10**(-16), 10**(-7))
 
         if sample is None:
             pass
