@@ -14,12 +14,13 @@ for i in range(8):
 # Monte Carlo surviving events:
 
 ganymed_mc = "/media/michi/523E69793E69574F/daten/gamma/hzd_gammasall-analysis.root"
-
+ganymed_mc = "/home/michi/ml/mc/star/dortmund_disp2018-analysis.root"
 # Star files of data:
 
+star_files = ["/home/michi/data/mrk501daily/blocks/20140623.txt"]
 #star_files = ["/media/michi/523E69793E69574F/daten/crab2.txt"]
 #star_files = ["/media/michi/523E69793E69574F/daten/Mrk501/blocks/20140623__20140623.txt"]
-star_files = ["/media/michi/523E69793E69574F/daten/hzd_mrk501.txt"]
+#star_files = ["/media/michi/523E69793E69574F/daten/hzd_mrk501.txt"]
 #star_files= ["/media/michi/523E69793E69574F/daten/Crab/blocks/20160225_20180124.txt"]
 #star_files= ["/media/michi/523E69793E69574F/daten/Crab/blocks/20140820_20141001.txt"]
 
@@ -28,9 +29,11 @@ for entry in star_files:
     star_list += list(open(entry, "r"))
 
 # Ganymed result:
+
+ganymed_result = "/home/michi/data/mrk501daily/20140623-analysis.root"
 #ganymed_result = "/media/michi/523E69793E69574F/daten/crab2-analysis.root"
 #ganymed_result = "/media/michi/523E69793E69574F/daten/Mrk501/19-analysis.root"
-ganymed_result = "/media/michi/523E69793E69574F/daten/hzd_mrk501-analysis.root"
+#ganymed_result = "/media/michi/523E69793E69574F/daten/hzd_mrk501-analysis.root"
 #ganymed_result = "/media/michi/523E69793E69574F/daten/Crab/9-analysis.root"
 #ganymed_result = "/media/michi/523E69793E69574F/daten/Crab/5-analysis.root"
 
@@ -45,7 +48,8 @@ spectrum = Spectrum(run_list_star=star_list,
 def forest_energy_impact(gamma_on):
     from sklearn.externals import joblib
 
-    clf = joblib.load('/home/michi/random_forest_impact.pkl')
+    # clf = joblib.load('/home/michi/random_forest_impact.pkl')
+    clf = joblib.load('/home/michi/ml/mc/star/forest_impact_disp2018.pkl')
     training_variables_impact = ['MPointingPos.fZd', 'MHillas.fLength', 'MHillas.fSize', 'MHillas.fWidth',
                                  'MHillasSrc.fDist', 'MHillasExt.fM3Long', 'MHillasExt.fSlopeLong',
                                  'MHillasExt.fSlopeSpreadWeighted', 'MHillasExt.fTimeSpreadWeighted',
@@ -56,7 +60,7 @@ def forest_energy_impact(gamma_on):
 
     gamma_on["impact"] = predicted
 
-    clf = joblib.load('/home/michi/random_forest_impact_energy.pkl')
+    clf = joblib.load('/home/michi/ml/mc/star/forest_impact_energy2018.pkl')
 
     training_variables = [
                           'MPointingPos.fZd',
@@ -101,7 +105,7 @@ def cut_function(x):
     b = size > 125
     return np.logical_and(a, b)
 
-ebins = np.logspace(np.log10(200), np.log10(50000), 21)
+ebins = np.logspace(np.log10(200), np.log10(50000), 41)
 zdbins = np.linspace(0, 60, 21)
 
 # areas = calc_a_eff_parallel_hd5(ebins, zdbins, False,
@@ -109,11 +113,11 @@ zdbins = np.linspace(0, 60, 21)
 #                                energy_function=forest_energy_impact, slope_goal=None, impact_max=54000.0,
  #                               cut=cut)
 # spectrum.set_effective_area(areas)
-spectrum.set_theta_square(0.06)
+spectrum.set_theta_square(0.04)
 # spectrum.optimize_theta()
 
 
-#spectrum.optimize_ebinning(min_counts_per_bin=10, sigma_threshold=3)
+#spectrum.optimize_ebinning(min_counts_per_bin=10, sigma_threshold=3, min_bin_percentage=0.2)
 spectrum.set_energy_binning(ebins)
 spectrum.set_zenith_binning(zdbins)
 spectrum.set_correction_factors(False)
@@ -137,14 +141,31 @@ second.load(path)
 
 from blockspec.block.fitting import fit_ll
 
-fit = fit_ll(second, model='powerlaw')
+def powerlaw(x, k, gamma):
+    k = np.power(10, k)
+    return k*np.power(x/1000, gamma)  # * np.exp(np.divide(x, 6000))
+
+bounds = [[-20, -5], [-8, 1]]
+labels = ["$\Phi$ [cm^{-2}s^{-1}TeV^{-1}]", "$\Gamma$"]
+names = ["flux", "index"]
+
+
+fit = fit_ll(second, model=powerlaw, bounds=bounds, labels=labels, names=names, nsamples=500)
 print(fit)
 
 n = np.sum(0.2 * second.off_histo_zenith > 0)
 print(n)
 
+from corner import corner
+
+corner(fit["samples"][:,200:,:].reshape(-1,2), show_titles=True)
+
+corner(fit["samples"][:,150:,:].reshape(-1,2), show_titles=True)
+
 second.plot_flux(hess_flare=True)
 second.plot_thetasq()
+
+
 
 plt.show()
 

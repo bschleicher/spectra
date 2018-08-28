@@ -134,7 +134,7 @@ def plot_theta(thetasquare_binning, thetasquare_on, thetasquare_off, thetasq_cut
 
         # plt.text(x_text, y_text, text)
         ax.plot([], [], ' ', label=text)
-    ax.legend()
+    ax.legend(loc=1)
 
     plt.xlabel('$ \Theta^2 \, \mathrm{deg^2} $')
     plt.ylabel('Counts')

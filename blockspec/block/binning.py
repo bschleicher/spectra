@@ -75,3 +75,8 @@ def bayesian_block_binning(timecut, prior=5.1):
     timecut.loc[s_cp, 'bin'] = 1
 
     return timecut['bin'].cumsum()
+
+
+def threshold_binning(df, bins):
+    df["bin"] = pd.cut(df["threshold_median"], bins, )
+    return df["bin"]

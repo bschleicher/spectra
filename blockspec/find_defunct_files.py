@@ -2,8 +2,8 @@ import ROOT
 import sys
 import os
 
-result = ROOT.gSystem.Load('libmars.so')
-if result != 0:
+_result = ROOT.gSystem.Load('libmars.so')
+if _result != 0:
     print(
         'Could not load libmars, make sure to set your "LD_LIBRARY_PATH". If it is set, it was loaded before.'
     )
