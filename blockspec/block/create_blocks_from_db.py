@@ -197,7 +197,10 @@ def save_block_files_df(timecut,
                         basepath_of_starfiles,
                         basepath="/media/michi/523E69793E69574F/daten/Mrk501/blocks/",
                         dryrun=False,
-                        use_block_number_as_name=True):
+                        use_block_number_as_name=True,
+                        block_binning=None):
+    if hasattr(block_binning, "__call__"):
+        checked2["bin"] = block_binning(checked2)
 
     rangeframe = blocks[["run_start", "run_stop"]]
     print(rangeframe)
@@ -207,6 +210,8 @@ def save_block_files_df(timecut,
     for i in range(len(rangeframe)):
         ranges = [rangeframe.index[i], rangeframe.run_start.iloc[i], rangeframe.run_stop.iloc[i]]
         select = (checked2.time_mean >= ranges[1]) & (checked2.time_mean <= ranges[2])
+        if hasattr(block_binning, "__call__"):
+            select = checked2["bin"] == ranges[0]
 
         if use_block_number_as_name:
             filename = destination + str(ranges[0]) + ".txt"
@@ -220,6 +225,7 @@ def save_block_files_df(timecut,
     mapping.set_index("block", inplace=True)
     if not dryrun:
         mapping.to_json(destination + "mapping.json")
+        mapping.to_pickle(destination + "mapping.pkl")
     return mapping, blocks
 
 
@@ -236,6 +242,71 @@ def create_blocks(source="Mrk 501",
                   start_binning=None,
                   block_binning='makeblocks',
                   blocks_runwise=True):
+
+    """ 
+    This function reads the runwise entries from the FACT QLA database and either performs a binning to individual 
+    blocks as specified by block_binning. It creates a DataFrame called mapping.json and the ganymed txt files at 
+    the destination path.
+    The entries of the runlists for ganymed are prepended with the basepath_of_starfiles option in front of the
+    usual "YYYY/MM/DD YYYYMMDD_RRR.root" folder structure. 
+    Use the path, where the star files are located on your device.
+    
+    Parameters
+    ----------
+    source : str
+        Identifier of the source as used by FACT, e.g. "Mrk 501", "Mrk 421", "Crab".
+    
+    destination_path : str
+        Path, where the mapping.json DataFrame and runlists will be saved
+    
+    basepath_of_starfiles : str
+        Path to be prepended in front of the "YYYY/MM/DD YYYYMMDD_RRR.root" folder structure
+        of the star files. Should be the location of the star files on your device.
+        
+    start : int
+        Date from which to start. Should be of the form YYYYMMDD, e.g. 20130223.
+    
+    stop : int
+        End date of the query. Should be of the form YYYYMMDD, e.g. 20130223.
+    
+    time : float
+        A cut for minimum on-time in one block in hours. 
+        Example: 0.5 for a minimum on time per block of 30 minutes.
+    
+    frac : float
+        Minimum fraction for the DataCheck: 
+        (rate of the run)/(nominal rate of the period) > frac
+    
+    use_thresh_and_hum : bool
+        Apply a runwise cut of humidity > 80 % and a block-wise cut of median-threshold < 653.
+    
+    prior : float
+        Prior for the bayesian block binning. Has no effect if block_binning is different from "makeblocks".
+    
+    dryrun : bool
+        If True, don't save mapping DataFrame and runlist text-files. If false, save them to the path
+        specified by destination_path.
+    
+    start_binning : function or None
+        Pass a binning function that is applied before the block-binning. Only has an effect if blocks_runwise is False.
+        If blocks_runwise is True, the block_binning will be applied runwise.
+        If blocks_runwise is False, start_binning is applied before the block-binning and if start_binning is None,
+        the block_binning will be applied to a nightly binning.
+            
+    block_binning : function or 'makeblocks' or None
+        Binning for the individual blocks. If 'makeblocks', the bayesian block algorithm with a prior set by 
+        the prior parameter is used. If None, nightly binning is used.
+        Depending on the blocks_runwise and start_binning parameters, the block binning is either applied runwise 
+        or on the binning specified by start_binning.
+        
+    blocks_runwise : bool
+        If True, block_binning is applied runwise.
+        If False, block_binning is applied on binned runs with a binning specified by start_binning.
+        
+    
+    """
+
+
     checked, checked2 = get_data(source=source,
                                  first_night=start,
                                  last_night=stop,
@@ -275,7 +346,7 @@ def create_blocks(source="Mrk 501",
             blocks = block_humcut
 
         mapping, blocks = save_block_files_df(timecut, checked2, blocks, basepath_of_starfiles,
-                                              basepath=destination_path, dryrun=dryrun)
+                                              basepath=destination_path, dryrun=dryrun, block_binning=block_binning)
 
         plot_nightly(timecut, blocks, source=source, as_block=True)
 
