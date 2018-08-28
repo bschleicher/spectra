@@ -91,12 +91,12 @@ def _get_log_like_stats(spect, spec_function, A):
 
     s = np.sum(y[mask3] * np.log(ysim[mask3]) - ysim[mask3]) #Only signal (hard to interpret)
 
-    return np.array([s_bg - b_bg, np.sum(mask2), s_sig-b_sig, np.sum(mask), s, np.sum(mask3)])
+    return np.array([2*(s_bg - b_bg), np.sum(mask2), 2*(s_sig-b_sig), np.sum(mask), 2*s, np.sum(mask3)])
 
 
 def fit_ll(spect,
            nwalkers=100,
-           nsamples=500,
+           nsamples=800,
            nburnin=150,
            model='powerlaw',
            start_values=None,
@@ -135,17 +135,19 @@ def fit_ll(spect,
         start = 4
         stop = None
         y = spect.on_histo_zenith[:, start:stop]
+
         bsim = 0.2 * spect.off_histo_zenith[:, start:stop]
-        ysim = countssim_zd_e(A)[:, start:stop] + bsim
+        sim = countssim_zd_e(A)[:, start:stop]
+        ysim = sim + bsim
 
         # mask = ysim > 0
-        mask2 =  (ysim > 0) & (bsim > 0)  # & (y > 0)
+        mask2 =  (ysim > 0) #& (bsim > 0)  # & (y > 0)
         b = np.sum(y[mask2] * np.log(bsim[mask2]) - bsim[mask2])
         # b = np.sum(y[mask2] * np.log(y[mask2]) - y[mask2]) #  using this instead of background estimation
                                     # should lead to a value close to a chi square values as goodness of fit.
         s = np.sum(y[mask2] * np.log(ysim[mask2]) - ysim[mask2])  # - np.log(factorial(y))
         # s2 = np.sum(y[mask2] * np.log(ysim[mask2]) - ysim[mask2])
-        return 2 * (s - b)
+        return (s ) #- b)
 
     bounds = np.array(bounds)
 
