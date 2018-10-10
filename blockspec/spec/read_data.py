@@ -100,7 +100,7 @@ def calc_onoffhisto(data,
 
     if cut is not None:
         if hasattr(cut, '__call__'):
-            data = data.loc[cut(data).values].copy()
+            data = data.loc[cut(data).values]
         else:
             raise ValueError('Cut is not callable, please check if it is a function of DataFrame columns')
 
@@ -109,11 +109,8 @@ def calc_onoffhisto(data,
             return (np.power(29.65 * x["MHillas.fSize"],
                              (0.77 / np.cos((x["MPointingPos.fZd"] * 1.35 * np.pi) / 360))) +
                     x["MNewImagePar.fLeakage2"] * 13000)
-    data = data.dropna().copy()
-    data["energy"] = energy_function(data)
-    if energy_function2 is not None:
-        data["energy2"] = energy_function2(data)
 
+    data = data.dropna().copy()
     on_histo = np.zeros([len(zdbins)-1, len(ebins)-1])
     off_histo = np.zeros([len(zdbins)-1, len(ebins)-1])
 
@@ -122,8 +119,13 @@ def calc_onoffhisto(data,
             if is_star_file:
                 pass
             else:
-                source_data = data.loc[np.less_equal(data["ThetaSquared.fVal"].values, thetasq)]
+                source_data = data.loc[np.less_equal(data["ThetaSquared.fVal"].values, thetasq)].copy()
                 select = source_data["DataType.fVal"].values.astype(np.bool)
+
+
+            source_data["energy"] = energy_function(source_data)
+            if energy_function2 is not None:
+                source_data["energy2"] = energy_function2(source_data)
             on_data = source_data.loc[select]
             off_data = source_data.loc[np.bitwise_not(select)]
 
