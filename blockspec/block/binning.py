@@ -80,3 +80,55 @@ def bayesian_block_binning(timecut, prior=5.1):
 def threshold_binning(df, bins):
     df["bin"] = pd.cut(df["threshold_median"], bins, )
     return df["bin"]
+
+
+def threshold_binning_ontime(df, time_in_hours):
+    """Bin runs by "fThresholdMinSet" until a combined ontime of more than time_in_hours is reached. 
+       The algorithm sorts by threshold in ascending order. Starting at bin number 0, 
+       one run is added at a time, until the goal of an combined ontime of time_in_hours of the bin is met. """
+    time = time_in_hours * 60 * 60
+    threshold_column = "threshold_minset"
+    data = df[[threshold_column, "ontime"]].copy()
+    sel = data.sort_values(threshold_column)
+    data['bin'] = None
+    bin_number = 0
+    ontime_sum = 0
+    for tuples in sel.itertuples():
+        ontime_sum += tuples[2]
+        data.loc[tuples[0], "bin"] = bin_number
+        if ontime_sum > time:
+            bin_number += 1
+            ontime_sum = 0
+
+    for i in range(data["bin"].max() + 1):
+        sel = data.loc[data["bin"] == i, threshold_column]
+        minimum, maximum = sel.min(), sel.max()
+        data.loc[data["bin"] == i, "bin"] = "{:3.0f} to {:3.0f}".format(minimum, maximum)
+
+    return data["bin"]
+
+
+def zenith_binning_ontime(df, time_in_hours):
+    """Bin runs by "zd" until a combined ontime of more than time_in_hours is reached. 
+       The algorithm sorts by zd in ascending order. Starting at bin number 0, 
+       one run is added at a time, until the goal of an combined ontime of time_in_hours of the bin is met. """
+    time = time_in_hours * 60 * 60
+    threshold_column = "zd"
+    data = df[[threshold_column, "ontime"]].copy()
+    sel = data.sort_values(threshold_column)
+    data['bin'] = None
+    bin_number = 0
+    ontime_sum = 0
+    for tuples in sel.itertuples():
+        ontime_sum += tuples[2]
+        data.loc[tuples[0], "bin"] = bin_number
+        if ontime_sum > time:
+            bin_number += 1
+            ontime_sum = 0
+
+    for i in range(data["bin"].max() + 1):
+        sel = data.loc[data["bin"] == i, threshold_column]
+        minimum, maximum = sel.min(), sel.max()
+        data.loc[data["bin"] == i, "bin"] = "{:3.0f} to {:3.0f}".format(minimum, maximum)
+
+    return data["bin"]
