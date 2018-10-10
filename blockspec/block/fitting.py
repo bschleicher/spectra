@@ -95,14 +95,18 @@ def _get_log_like_stats(spect, spec_function, A):
 
 
 def fit_ll(spect,
-           nwalkers=100,
+           nwalkers=200,
            nsamples=800,
            nburnin=150,
            model='powerlaw',
            start_values=None,
            bounds=None,
            labels=None,
-           names=None):
+           names=None,
+           zd_start=0,
+           zd_stop=None,
+           start=4,
+           stop=None):
 
     if model == 'powerlaw':
         spec_function, start_values, bounds, labels, names = powerlaw_model(bounds=bounds,
@@ -126,17 +130,15 @@ def fit_ll(spect,
 
     def countssim_zd_e(A):
         sim_flux = spec_function(spect.energy_center, *A)
-        Tjki = emig * (sim_flux * bin_width)[np.newaxis, :, np.newaxis]
-        Tjki = Tjki * spect.on_time_per_zd[:, np.newaxis, np.newaxis]
-        Tjki = Tjki * spect.effective_area[:, :, np.newaxis]
+        Tjki = emig[zd_start:zd_stop, :, :] * (sim_flux * bin_width)[np.newaxis, :, np.newaxis]
+        Tjki = Tjki * spect.on_time_per_zd[zd_start:zd_stop, np.newaxis, np.newaxis]
+        Tjki = Tjki * spect.effective_area[zd_start:zd_stop, :, np.newaxis]
         return np.sum(Tjki, axis=1)
 
     def log_like_zd_e(A):
-        start = 4
-        stop = None
-        y = spect.on_histo_zenith[:, start:stop]
+        y = spect.on_histo_zenith[zd_start:zd_stop, start:stop]
 
-        bsim = 0.2 * spect.off_histo_zenith[:, start:stop]
+        bsim = 0.2 * spect.off_histo_zenith[zd_start:zd_stop, start:stop]
         sim = countssim_zd_e(A)[:, start:stop]
         ysim = sim + bsim
 
