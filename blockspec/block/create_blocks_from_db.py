@@ -4,6 +4,8 @@ from blockspec.block.makeblocks import makeblocks
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.dates import DateFormatter
+from matplotlib.dates import MonthLocator
 
 
 def makenightly(checked2, binning_function=None, **kwargs):
@@ -42,7 +44,9 @@ def get_data(source="Mrk 501",
     checked2["time_mean"] = checked2.run_start + (checked2.run_start - checked2.run_stop) / 2
     checked = df.loc[(df.r750cor/df.r750ref > datacheck_frac)
                      & (df.r750cor/df.r750ref < 1.2)
-                     & (df.humidity < hum_value)].dropna()
+                     & (df.threshold_minset < 560)].dropna()
+    checked["time_mean"] = checked.run_start + (checked.run_start - checked.run_stop) / 2
+
     return checked, checked2
 
 
@@ -55,7 +59,7 @@ def apply_binning_and_timecut(checked,
     timecut = plotdf.where(plotdf.ontime > time).dropna()
 
     humcut = makenightly(checked, binning_function=binning_function)
-    humcut.where((humcut.threshold_median < thresh_value) & (humcut.ontime > time), inplace=True)
+    humcut.where((humcut.ontime > time), inplace=True)
     humcut.dropna(inplace=True)
 
     return timecut, humcut
@@ -90,12 +94,16 @@ def blocks_from_df(timecut, prior=5.1):
 
 
 def plot_dataframe(timecut, source, alpha=0.6):
-    plt.errorbar(x=timecut.time_mean.values,
+    x = timecut.time_mean.values
+    xerr = (timecut.time_width/2).values
+    plt.errorbar(x=x,
+                 xerr=xerr,
                  y=timecut.excess_rate.values,
                  yerr=timecut.excess_rate_err.values,
-                 fmt=".",
+                 fmt=" ",
                  label=source,
                  alpha=alpha)
+    plt.xlim(x[0]-xerr[0], x[-1]+xerr[-1])
 
 
 def plot_dataframe_as_block(timecut):
@@ -137,7 +145,7 @@ def plot_blocks(timecut, blocks, prior):
 
 
 def plot_nightly(timecut, blocks=None, prior=None, source='Fact-Source', as_block=False):
-    plt.figure()
+    plt.figure(figsize=(10, 4))
     plot_dataframe(timecut, source, alpha=0.6)
 
     if as_block:
@@ -145,10 +153,18 @@ def plot_nightly(timecut, blocks=None, prior=None, source='Fact-Source', as_bloc
     else:
         plot_blocks(timecut, blocks, prior=prior)
 
+
+    ax = plt.gca()
+    ax.xaxis.set_minor_locator(MonthLocator(bymonth=(3, 5, 9, 11), bymonthday=(1, 1, 1, 1)))
+    ax.xaxis.set_major_locator(MonthLocator(bymonth=(1, 7), bymonthday=(1, 1)))
+    ax.xaxis.set_major_formatter(DateFormatter('%Y-%m'))
+
+    plt.grid(True, which='major')
+    plt.grid(True, which='minor', linewidth=0.2, linestyle="--")
     plt.xlabel("Time")
     plt.ylabel("Excess rate Evts/h")
     plt.legend()
-    plt.grid()
+    #plt.grid()
     plt.tight_layout()
 
 
@@ -344,10 +360,13 @@ def create_blocks(source="Mrk 501",
 
         if use_thresh_and_hum:
             blocks = block_humcut
+            checked2 = checked
 
         mapping, blocks = save_block_files_df(timecut, checked2, blocks, basepath_of_starfiles,
                                               basepath=destination_path, dryrun=dryrun, block_binning=block_binning)
 
         plot_nightly(timecut, blocks, source=source, as_block=True)
 
-    return timecut, mapping, blocks
+    fig = plt.gcf()
+
+    return timecut, mapping, blocks, fig
