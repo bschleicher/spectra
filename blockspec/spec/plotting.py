@@ -12,6 +12,7 @@ def plot_spectrum(bin_centers,
                   hess_flare=False,
                   crab_do=False,
                   crab_magic=False,
+                  crab_hess=False,
                   filename=None,
                   ax_flux=None,
                   ax_sig=None,
@@ -70,9 +71,16 @@ def plot_spectrum(bin_centers,
     if crab_magic:
         def crab_magic_fit(E):
             E= E/1000
-            return 3.23 * 10**(-11) * np.power(E, -2.47 - 0.24 * np.log10(E))
+            return 3.23 * 10**(-11) * np.power(E, -2.47 - 0.24 * np.log(E))
         energy = np.logspace(np.log10(200), np.log10(50000), 1000)
         ax_flux.errorbar(x=energy, y=crab_magic_fit(energy), label="Crab Magic 2015")
+
+    if crab_hess:
+        def crab_hess_fit(E):
+            E=E/521
+            return 1.79 * 10 ** (-10) * np.power(E, -2.1 - 0.24 * np.log(E))
+        energy = np.logspace(np.log10(200), np.log10(50000), 1000)
+        ax_flux.errorbar(x=energy, y=crab_hess_fit(energy), label="HESS 2015")
     ax_flux.errorbar(x=bin_centers, y=flux, yerr=flux_err, xerr=energy_err, fmt=".", label=label, **kwargs)
 
     ax_sig.plot(bin_centers, significance, "o", **kwargs)
