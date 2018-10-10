@@ -136,6 +136,9 @@ class BlockAnalysis(Sequence):
             self.source_ra = 11.0742
             self.source_deg = 38.2089
 
+        elif source_name is None:
+            pass
+
         else:
             try:
                 source = SkyCoord.from_name(self.source_name)
@@ -195,6 +198,7 @@ class BlockAnalysis(Sequence):
     def save(self, filename, save_fit_samples=True):
         save_variables_to_json(self, filename)
         self.mapping.to_json(self.basepath + "blocks/mapping.json", double_precision=15)
+        self.mapping.to_pickle(self.basepath + "blocks/mapping.pkl")
         if self.fit_results is not None:
             print("thisworks")
             self.fit_results.to_pickle(self.basepath + "blocks/fit_results.pkl")
@@ -255,7 +259,7 @@ class BlockAnalysis(Sequence):
                     force=False,
                     **kwargs):
 
-        if "has_data" in self.mapping.columns:
+        if ("has_data" in self.mapping.columns):
             has_data = self.mapping["has_data"].copy()
         else:
             has_data = np.full(len(self.mapping), False)
@@ -320,7 +324,8 @@ class BlockAnalysis(Sequence):
 
                     spectrum.save(path)
                     spectra.append(spectrum)
-                    has_data[block_number] = True
+                    has_data.iloc[self.mapping.index.get_loc(block_number)] = True # This construction is necessary to
+                                                                                   # allow an Interval Index
 
                 except AttributeError as err:
                     print(err)
@@ -520,7 +525,7 @@ class BlockAnalysis(Sequence):
             pool = Pool()
             result = [pool.apply_async(_wrap_one_fit,
                                        args=(spect, which_block_list, i, fit_function, model, start_values,
-                                             bounds, labels, names)) for i, spect in enumerate(self.spectra)]
+                                             bounds, labels, names), kwds=kwargs) for i, spect in enumerate(self.spectra)]
             pool.close()
             pool.join()
 
@@ -741,7 +746,7 @@ class BlockAnalysis(Sequence):
                                 show_titles=True,
                                 title_kwargs={"fontsize": 12})
             if plot_theta_sq or plot_flux:
-                width, height = 14,7
+                width, height = 20, 10 # 14, 7
                 step, lm = 2, 0.1
                 fig.set_size_inches(width, height)
                 fig.subplots_adjust(left=lm,
@@ -883,6 +888,8 @@ class BlockAnalysis(Sequence):
     def _plot_flux(self, id, sample=None, ax_sig=None, ax_flux=None):
         block_number = self.fit_results.index.values[id]
         ax_sig, ax_flux = self.spectra[id].plot_flux(crab_do=True,
+                                                     crab_hess=True,
+                                                     crab_magic=True,
                                                      label="{}: \nstart {} \n stop {}".format(block_number,
                                                                            self.mapping['start'][block_number].strftime(
                                                                             "%Y-%m-%d %H:%M"),
@@ -1007,6 +1014,7 @@ class BlockAnalysis(Sequence):
                           label=str(block_number),
                           alpha=0.3)
         plt.show()
+        return fig
 
     def plot_index_vs_flux(self,):
         plt.errorbar(x=self.mapping.flux5,
