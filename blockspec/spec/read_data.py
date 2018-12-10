@@ -175,6 +175,8 @@ def calc_onoffhisto(data,
             off_thetasq = np.histogram(datr.loc[np.bitwise_not(select)]["ThetaSquared.fVal"].values,
                                        bins=40,
                                        range=(0.0, 0.3))
+            if energy_function2 is not None:
+                raise ValueError('Calculation of histograms has failed.')
 
     if energy_function2 is not None:
         return np.array([on_histo, off_histo]), [on_thetasq, off_thetasq], energy_migration[0]
