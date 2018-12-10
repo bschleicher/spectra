@@ -18,9 +18,12 @@ for i in range(8):
 ganymed_mc = "/home/michi/ml/mc/star/dortmund_disp2018-analysis.root"
 # Star files of data:
 
-star_files = ["/home/michi/data/bump/july19_21.txt"]
+#star_files = ["/home/michi/data/bump/july19_21.txt"]
 #star_files = ["/home/michi/data/threshold/blocks/(289.097, 402.875].txt"]
-star_files = ["/home/michi/data/mrk501daily/blocks/20140623.txt"]
+#star_files = ["/home/michi/data/mrk501daily/blocks/20140623.txt"]
+#star_files = ["/home/michi/data/mrk501_bb/blocks/20140623_20140623.txt"]
+
+star_files = ["/home/michi/data/crab_zd/blocks/ 35 to  60.txt"]
 #star_files = ["/media/michi/523E69793E69574F/daten/crab2.txt"]
 #star_files = ["/media/michi/523E69793E69574F/daten/Mrk501/blocks/20140623__20140623.txt"]
 #star_files = ["/media/michi/523E69793E69574F/daten/hzd_mrk501.txt"]
@@ -33,9 +36,12 @@ for entry in star_files:
 
 
 # Ganymed result:
-ganymed_result = "/home/michi/data/bump/july19_21-analysis.root"
+#ganymed_result = "/home/michi/data/bump/july19_21-analysis.root"
 #ganymed_result = "/home/michi/data/threshold/(289.097, 402.875]-analysis.root"
-ganymed_result = "/home/michi/data/mrk501daily/20140623-analysis.root"
+#ganymed_result = "/home/michi/data/mrk501daily/20140623-analysis.root"
+#ganymed_result = "/home/michi/data/mrk501_bb/14-analysis.root"
+ganymed_result = "/home/michi/data/crab_zd/ 35 to  60-analysis.root"
+
 #ganymed_result = "/media/michi/523E69793E69574F/daten/crab2-analysis.root"
 #ganymed_result = "/media/michi/523E69793E69574F/daten/Mrk501/19-analysis.root"
 #ganymed_result = "/media/michi/523E69793E69574F/daten/hzd_mrk501-analysis.root"
@@ -77,7 +83,7 @@ def cut_function(x):
     b = size > 125
     return np.logical_and(a, b)
 
-ebins = np.logspace(np.log10(200), np.log10(50000), 31)
+ebins = np.logspace(np.log10(200), np.log10(50000), 16)
 zdbins = np.linspace(0, 60, 31)
 
 # areas = calc_a_eff_parallel_hd5(ebins, zdbins, False,
@@ -85,7 +91,7 @@ zdbins = np.linspace(0, 60, 31)
 #                                energy_function=forest_energy_impact, slope_goal=None, impact_max=54000.0,
  #                               cut=cut)
 # spectrum.set_effective_area(areas)
-spectrum.set_theta_square(0.04)
+spectrum.set_theta_square(0.08)
 # spectrum.optimize_theta()
 
 
@@ -105,7 +111,7 @@ print(spectrum.off_histo)
 print(spectrum.excess_histo)
 print(spectrum.excess_histo_err)
 
-spectrum.plot_flux(crab_magic=True, hess_flare=True)
+spectrum.plot_flux(crab_do=True, hess_flare=False)
 spectrum.plot_thetasq()
 path = "/media/michi/523E69793E69574F/xy.json"
 spectrum.save(path)
@@ -126,15 +132,17 @@ labels = ["$\Phi$ [cm^{-2}s^{-1}TeV^{-1}]", "$\Gamma$"]
 names = ["flux", "index"]
 
 
-def powerlaw(x, k, gamma, b, mu, sigma):
-    k = np.power(10, k)
-    b = np.power(10, b)
-    gaussian = np.divide(b, sigma) * np.exp(-np.divide(x/1000 - mu,4*sigma)**2)
-    return k*np.power(x/1000, gamma) + gaussian # * np.exp(np.divide(x, 6000))
+def powerlaw(x, k, gamma):
+    k = k*10**(-11)
+    #b = np.power(10, b)
+    ##gaussian = np.divide(b, sigma) * np.exp(-np.divide(x/1000 - mu,4*sigma)**2)
+    #return k*np.power(x/1000, gamma) + gaussian # * np.exp(np.divide(x, 6000))
+    log_thing = gamma * np.log(x / 1000) # - np.divide(x, xc * 1000)
+    return k * np.exp(log_thing)
 
-bounds = [[-20, -5], [-8, 1], [-17, -5], [3, 5], [0, 30000]]
-labels = ["$\Phi$ [cm^{-2}s^{-1}TeV^{-1}]", "$\Gamma$", "b", "$\mu$", "$\sigma$"]
-names = ["flux", "index", "b", "mu", "sigma"]
+bounds = [[0, 20], [-8, 1]]
+labels = ["$\Phi$ $[\mathrm{10^{-11}cm^{-2}s^{-1}TeV^{-1}}]$", "$\Gamma$"]
+names = ["flux", "index", "cutoff"]
 
 
 fit = fit_ll(second, model=powerlaw, bounds=bounds, labels=labels, names=names, nsamples=1500)
@@ -145,11 +153,11 @@ print(n)
 
 from corner import corner
 
-corner(fit["samples"][:,200:,:].reshape(-1,len(labels)), show_titles=True)
+corner(fit["samples"][:,200:,:].reshape(-1,len(labels)), show_titles=True, labels=labels)
 
 corner(fit["samples"][:,150:,:].reshape(-1,len(labels)), show_titles=True)
 
-second.plot_flux(hess_flare=True)
+second.plot_flux(crab_do=True)
 
 ax = plt.gca()
 from blockspec.block.block import conf_from_sample
@@ -157,7 +165,7 @@ from blockspec.block.block import conf_from_sample
 x, mid, low, up = conf_from_sample(fit["samples"][:,150:,:], powerlaw)
 ax.plot(x, mid, label="Fit LogLike")
 ax.fill_between(x, low, up, label="LogLike 68 % confidence", alpha=0.4)
-
+plt.legend()
 
 second.plot_thetasq()
 

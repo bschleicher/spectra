@@ -526,7 +526,7 @@ class Spectrum:
                              **kwargs)
         return axes
 
-    def plot_thetasq(self, ax=None):
+    def plot_thetasq(self, ax=None, **kwargs):
         if self.on_theta_square_histo is None:
             print("No theta square histo, please run Spectrum.calc_differential_spectrum()")
             return
@@ -536,7 +536,8 @@ class Spectrum:
                           self.off_theta_square_histo,
                           self.theta_square,
                           self.stats,
-                          ax=ax)
+                          ax=ax,
+                          **kwargs)
 
     ##############################################################
     # Define functions to dump and load variables as json
