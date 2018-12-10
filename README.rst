@@ -105,6 +105,7 @@ Go to the Mars directory and do
 
     $ cd
     $ cd Mars
+    $ root
     $ .x /media/michi/523E69793E69574F/gamma/ganymed.C("/media/michi/523E69793E69574F/gamma/star_new/star_files.txt","/media/michi/523E69793E69574F/gamma/star_new/gammasall",0,0,1)
 
 You can find a working Ganymed macro in this directory. It uses the disp parametrisation for the "new cleaning" and
