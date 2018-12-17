@@ -195,7 +195,7 @@ def save_block_files(timecut,
         nights = timecut.loc[((timecut.index >= ranges[1]) & (timecut.index <= ranges[2]))]
         start = nights.iloc[0].run_start
         stop = nights.iloc[-1].run_stop
-        filename = destination + ranges[1].astype('str') + "_" + ranges[2].astype('str') + ".txt"
+        filename = destination + str(ranges[1]) + "_" + str(ranges[2]) + ".txt"
         if not dryrun:
             save_runlist_star(filename, checked2[checked2.night.isin(nights.index)], basepath=basepath_of_starfiles)
         namelist.append([ranges[0], filename, start, stop])
