@@ -232,7 +232,7 @@ def save_block_files_df(timecut,
         if use_block_number_as_name:
             filename = destination + str(ranges[0]) + ".txt"
         else:
-            filename = destination + ranges[1].astype('str') + "_" + ranges[2].astype('str') + ".txt"
+            filename = destination + str(ranges[1]) + "_" + str(ranges[2]) + ".txt"
         if not dryrun:
             save_runlist_star(filename, checked2[select], basepath=basepath_of_starfiles)
         namelist.append([ranges[0], filename, ranges[1], ranges[2]])
