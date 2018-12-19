@@ -241,6 +241,9 @@ class BlockAnalysis(Sequence):
             except ValueError as err:
                 print(err)
                 print("Mapping as pickle doesn't work either")
+            except FileNotFoundError as err:
+                print(err)
+                print("File does not exist")
 
         if self.mapping is not None:
             self.calc_mapping_columns()
