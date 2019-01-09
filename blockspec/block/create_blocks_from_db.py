@@ -115,7 +115,8 @@ def plot_dataframe_as_block(timecut):
                  label="Blocks")
     pew = timecut[['run_start', 'run_stop']].copy()
     pew["mid"] = pew.run_stop + (pew.run_start.shift(-1) - pew.run_stop)
-    pew["mid"].iloc[-1] = pew["mid"].iloc[-2]
+    if len(pew) > 2:
+        pew["mid"].iloc[-1] = pew["mid"].iloc[-2]
     x = pew.values.flatten()
     y = (timecut['excess_rate'].values[:, np.newaxis] * np.ones(3)).flatten()
     y_err = (timecut['excess_rate_err'].values[:, np.newaxis] * np.ones(3)).flatten()

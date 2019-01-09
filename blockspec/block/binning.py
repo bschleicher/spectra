@@ -132,3 +132,18 @@ def zenith_binning_ontime(df, time_in_hours):
         data.loc[data["bin"] == i, "bin"] = "{:3.0f} to {:3.0f}".format(minimum, maximum)
 
     return data["bin"]
+
+
+def exclude_periods(df, array_of_periods=None):
+    """Bin runs by excluding nights of specified periods.
+       array_of_periods: two times nested array
+            example: [['2014-05-30', '2014-06-07'], ['2014-08-01', '2014-08-14']]"""
+    if array_of_periods is None:
+        array_of_periods = [['2014-05-30', '2014-06-07'], ['2014-08-01', '2014-08-14']]
+    exclude = array_of_periods
+    data = df[['run_start', 'run_stop']].copy()
+    data['bin'] = 0
+    for index, period in enumerate(exclude, 1):
+        a = pd.to_datetime(period)
+        data.loc[np.bitwise_not(np.bitwise_or((df['run_stop'] < a[0]), (df['run_start'] > a[1]))), 'bin'] = index
+    return data['bin']
