@@ -34,8 +34,9 @@ def get_data(source="Mrk 501",
                          last_night=20180418,
                          datacheck_frac=0.93,
                          hum_value=80,
+                         run_db='QLA'
                          ):
-    dfall = get_qla_data(last_night=last_night, first_night=first_night, sources=[source])
+    dfall = get_qla_data(last_night=last_night, first_night=first_night, sources=[source], run_database=run_db)
     df = dfall.loc[dfall.zd < 60]
     df = df.copy()
     df.drop('windgust_rms', axis=1, inplace=True)
@@ -257,7 +258,8 @@ def create_blocks(source="Mrk 501",
                   dryrun=False,
                   start_binning=None,
                   block_binning='makeblocks',
-                  blocks_runwise=True):
+                  blocks_runwise=True,
+                  run_database='QLA'):
 
     """ 
     This function reads the runwise entries from the FACT QLA database and either performs a binning to individual 
@@ -318,6 +320,8 @@ def create_blocks(source="Mrk 501",
     blocks_runwise : bool
         If True, block_binning is applied runwise.
         If False, block_binning is applied on binned runs with a binning specified by start_binning.
+    run_database: str
+        Can be either 'QLA' or 'ISDC'
         
     
     """
@@ -326,7 +330,8 @@ def create_blocks(source="Mrk 501",
     checked, checked2 = get_data(source=source,
                                  first_night=start,
                                  last_night=stop,
-                                 datacheck_frac=frac)
+                                 datacheck_frac=frac,
+                                 run_db=run_database)
 
     timecut, humcut = apply_binning_and_timecut(checked,
                                                 checked2,

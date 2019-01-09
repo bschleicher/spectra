@@ -14,6 +14,7 @@ from fact.factdb.models import FactDataModel
 from fact.factdb import (
     read_into_dataframe,
     AnalysisResultsRunLP as QLA,
+    AnalysisResultsRunISDC as ISDC,
     Source
 
 )
@@ -71,7 +72,8 @@ def get_qla_data(
         first_night=None,
         last_night=None,
         sources=None,
-        database_engine=None
+        database_engine=None,
+        run_database='QLA'
         ):
     """
     Request QLA results from our database
@@ -85,15 +87,22 @@ def get_qla_data(
     database_engine: sqlalchmey.Engine
         If given, the connection to use for the query.
         Else, `fact.credentials.create_factdb_engine` will be used to create it.
+    database: str
+        Can be either 'QLA' or 'ISDC'
     """
+    if run_database == 'QLA':
+        run_db = QLA
+    elif run_database == 'ISDC':
+        run_db = ISDC
+    else:
+        raise ValueError("run_database must be either 'QLA' or 'ISDC'")
 
-    query = QLA.select(
-        QLA.frunid.alias('run_id'),
-        QLA.fnight.alias('night'),
-        QLA.fnumexcevts.alias('n_excess'),
-        QLA.fnumsigevts.alias('n_on'),
-        (QLA.fnumbgevts * 5).alias('n_off'),
-        QLA.fontimeaftercuts.alias('ontime'),
+    query = run_db.select(run_db.frunid.alias('run_id'),
+                          run_db.fnight.alias('night'),
+                          run_db.fnumexcevts.alias('n_excess'),
+                          run_db.fnumsigevts.alias('n_on'),
+                          (run_db.fnumbgevts * 5).alias('n_off'),
+                          run_db.fontimeaftercuts.alias('ontime'),
         RunInfoWithRate.frunstart.alias('run_start'),
         RunInfoWithRate.frunstop.alias('run_stop'),
         Source.fsourcename.alias('source'),
@@ -121,14 +130,14 @@ def get_qla_data(
         RunInfoWithRate.fnumevents.alias('n')
     )
 
-    on = (RunInfoWithRate.fnight == QLA.fnight) & (RunInfoWithRate.frunid == QLA.frunid)
+    on = (RunInfoWithRate.fnight == run_db.fnight) & (RunInfoWithRate.frunid == run_db.frunid)
     query = query.join(RunInfoWithRate, on=on)
     query = query.join(Source, on=RunInfoWithRate.fsourcekey == Source.fsourcekey)
 
     if first_night is not None:
-        query = query.where(QLA.fnight >= first_night)
+        query = query.where(run_db.fnight >= first_night)
     if last_night is not None:
-        query = query.where(QLA.fnight <= last_night)
+        query = query.where(run_db.fnight <= last_night)
 
     if sources is not None:
         query = query.where(Source.fsourcename.in_(sources))
