@@ -499,7 +499,7 @@ class Spectrum:
         self.energy_error = bin_error
 
         if filename is not None:
-        np.savetxt(filename+'.txt', (np.vstack((bin_centers, self.differential_spectrum , bin_error, self.differential_spectrum_err)).T),header='bin_centers flux_de, bin_error, flux_de_error') 
+            np.savetxt(filename+'.txt', (np.vstack((bin_centers,flux_de,bin_error,flux_de_err_log10)).T),header='bin_centers flux_de, bin_error, flux_de_error') 
         
         return flux_de, flux_de_err_log10, bin_centers, bin_error
 
