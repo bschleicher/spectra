@@ -326,7 +326,7 @@ class BlockAnalysis(Sequence):
                     
                     if filename is not None:
                         spectrum.calc_differential_spectrum(efunc=efunc, force_calc=force, cut=cut,filename=filename+str(block_number))
-                    elif    
+                    else:    
                         spectrum.calc_differential_spectrum(efunc=efunc, force_calc=force, cut=cut)
                     
                     spectrum.save(path)
