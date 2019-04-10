@@ -260,6 +260,7 @@ class BlockAnalysis(Sequence):
                     start=None,
                     stop=None,
                     force=False,
+                    filename=None,
                     **kwargs):
 
         if ("has_data" in self.mapping.columns):
@@ -322,9 +323,12 @@ class BlockAnalysis(Sequence):
 
                     if areas is not None:
                         spectrum.set_effective_area(areas)
-
-                    spectrum.calc_differential_spectrum(efunc=efunc, force_calc=force, cut=cut)
-
+                    
+                    if filename is not None:
+                        spectrum.calc_differential_spectrum(efunc=efunc, force_calc=force, cut=cut,filename=filename+str(block_number))
+                    elif    
+                        spectrum.calc_differential_spectrum(efunc=efunc, force_calc=force, cut=cut)
+                    
                     spectrum.save(path)
                     spectra.append(spectrum)
                     has_data.iloc[self.mapping.index.get_loc(block_number)] = True # This construction is necessary to
