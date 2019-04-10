@@ -4,7 +4,7 @@
 
 
 from peewee import (
-    FloatField, IntegerField, DateTimeField, CompositeKey
+    FloatField, IntegerField, DateTimeField, CompositeKey, fn
 )
 
 
@@ -15,6 +15,7 @@ from fact.factdb import (
     read_into_dataframe,
     AnalysisResultsRunLP as QLA,
     AnalysisResultsRunISDC as ISDC,
+    AnalysisResultsRunCutsLC as CutsLC,
     Source
 
 )
@@ -28,6 +29,7 @@ class RunInfoWithRate(FactDataModel):
     fnight = IntegerField(db_column='fNight')
     fnumevents = IntegerField(db_column='fNumEvents', null=True)
     fontime = FloatField(db_column='fOnTime', null=True)
+    feffectiveon = FloatField(db_column='fEffectiveOn', null=True)
     foutsidetempmean = FloatField(db_column='fOutsideTempMean', null=True)
     foutsidetemprms = FloatField(db_column='fOutsideTempRms', null=True)
     frunid = IntegerField(db_column='fRunID')
@@ -62,6 +64,8 @@ class RunInfoWithRate(FactDataModel):
     fwindspeedmean = FloatField(db_column='fWindSpeedMean', null=True)
     fwindspeedrms = FloatField(db_column='fWindSpeedRms', null=True)
 
+    frealontime=fn.TIME_TO_SEC(fn.TIMEDIFF(frunstop,frunstart))*feffectiveon
+
     class Meta:
         db_table = 'RunInfo'
         indexes = ((('fnight', 'frunid'), True),)
@@ -76,7 +80,7 @@ def get_qla_data(
         run_database='QLA'
         ):
     """
-    Request QLA results from our database
+    Request results from our database
     first_night: int or None
         If given, first night to query as FACT night integer.
     last_night: int or None
@@ -88,21 +92,26 @@ def get_qla_data(
         If given, the connection to use for the query.
         Else, `fact.credentials.create_factdb_engine` will be used to create it.
     database: str
-        Can be either 'QLA' or 'ISDC'
+        Can be either 'QLA', 'ISDC' or 'CutsLC'
     """
     if run_database == 'QLA':
         run_db = QLA
     elif run_database == 'ISDC':
         run_db = ISDC
+    elif run_database == 'CutsLC':
+        run_db = CutsLC
     else:
-        raise ValueError("run_database must be either 'QLA' or 'ISDC'")
+        raise ValueError("run_database must be either 'QLA', 'ISDC' or 'CutsLC'")
 
     query = run_db.select(run_db.frunid.alias('run_id'),
                           run_db.fnight.alias('night'),
                           run_db.fnumexcevts.alias('n_excess'),
                           run_db.fnumsigevts.alias('n_on'),
                           (run_db.fnumbgevts * 5).alias('n_off'),
-                          run_db.fontimeaftercuts.alias('ontime'),
+#                          run_db.fontimeaftercuts.alias('oldontime'),
+#        (RunInfoWithRate.fn.TIME_TO_SEC(fn.TIMEDIFF(frunstop,frunstart))*feffectiveon).alias('newontime'),
+#        get_correct_ontime(run_db.fnight,run_db.fnight).alias('ontime'),
+        RunInfoWithRate.frealontime.alias('ontime'),
         RunInfoWithRate.frunstart.alias('run_start'),
         RunInfoWithRate.frunstop.alias('run_stop'),
         Source.fsourcename.alias('source'),
