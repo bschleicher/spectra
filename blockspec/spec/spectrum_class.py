@@ -454,7 +454,8 @@ class Spectrum:
                                    efunc=None,
                                    slope_goal=None,
                                    force_calc=False,
-                                   cut=None):
+                                   cut=None,
+                                   filename=None):
         if efunc is None:
             if self.energy_function is not None:
                 efunc = self.energy_function
@@ -497,6 +498,9 @@ class Spectrum:
         self.energy_center = bin_centers
         self.energy_error = bin_error
 
+        if filename is not None:
+        np.savetxt(filename+'.txt', (np.vstack((bin_centers, flux_de, bin_error, flux_de_error)).T),header='bin_centers flux_de, bin_error, flux_de_error') 
+        
         return flux_de, flux_de_err_log10, bin_centers, bin_error
 
     ##########################################################
