@@ -499,8 +499,8 @@ class Spectrum:
         self.energy_error = bin_error
 
         if filename is not None:
-            np.savetxt(filename+'.txt', (np.vstack((bin_centers,flux_de,bin_error,flux_de_err_log10)).T),header='bin_centers flux_de, bin_error, flux_de_error_log10') 
-            np.savetxt(filename+'_test.txt', (np.vstack((bin_centers,flux_de,bin_error,flux_de_err_log10,self.excess_histo)).T),header='bin_centers flux_de, bin_error, flux_de_error_log10')
+            np.savetxt(filename+'.txt', (np.vstack((bin_centers,flux_de,bin_error,flux_de_err_log10)).T),header='bin_centers flux_de, bin_error (low&high), flux_de_error_log10 (low&high)') 
+            np.savetxt(filename+'_NumberOfPoints.txt', (np.vstack((bin_centers,flux_de,bin_error,flux_de_err_log10,self.excess_histo)).T),header='bin_centers flux_de, bin_error (low&high), flux_de_error_log10 (low&high), Number of Points per Energy Bin')
             
         return flux_de, flux_de_err_log10, bin_centers, bin_error
 
