@@ -490,7 +490,7 @@ class Spectrum:
 
         flux_de = np.divide(flux, np.divide(bin_width, 1000))
         flux_de_err = np.divide(flux_err, np.divide(bin_width, 1000))  # / (flux_de * np.log(10))
-        flux_de_err_log10 = symmetric_log10_errors(flux_de, flux_de_err)
+#        flux_de_err_log10 = symmetric_log10_errors(flux_de, flux_de_err)
 
         self.differential_spectrum = flux_de
         self.differential_spectrum_err = flux_de_err_log10
