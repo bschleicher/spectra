@@ -22,6 +22,8 @@ def symmetric_log10_errors(value, error):
     error /= (value * np.log(10))
     error_l = value - np.ma.power(10, (np.ma.log10(value) - error))
     error_h = np.ma.power(10, (np.ma.log10(value) + error)) - value
+    error_l=error
+    error_h=error
     return np.ma.array([error_l, error_h])
 
 
@@ -502,8 +504,8 @@ class Spectrum:
             np.savetxt(filename+'.txt', (np.vstack((bin_centers,flux_de,bin_error,flux_de_err_log10)).T),header='bin_centers flux_de, bin_error (low&high), flux_de_error_log10 (low&high)') 
             np.savetxt(filename+'_NumberOfPoints.txt', (np.vstack((bin_centers,flux_de,bin_error,flux_de_err_log10,self.excess_histo)).T),header='bin_centers flux_de, bin_error (low&high), flux_de_error_log10 (low&high), Number of Points per Energy Bin')
             
-        #return flux_de, flux_de_err_log10, bin_centers, bin_error
-        return flux_de, flux_de_err, bin_centers, bin_error
+        return flux_de, flux_de_err_log10, bin_centers, bin_error
+
     ##########################################################
     # Wrapper methods for plotting
     ##########################################################
