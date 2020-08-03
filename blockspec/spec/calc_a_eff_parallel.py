@@ -176,7 +176,7 @@ def calc_a_eff_parallel(ebins,
     A theta square cut (theta is the angular distance of events to the source position) is applied.    
     
     correction_factors = False is the standard option. It means, that the histogram of surviving events is filled 
-    using the true MC energy. If correction factors = False is used, the histogram of surviving events is filled 
+    using the true MC energy. If correction factors = True is used, the histogram of surviving events is filled 
     with the estimated energy of the events according to the energy estimation formula, implementing the method of
     correction factors in a simple way.
     
@@ -186,7 +186,7 @@ def calc_a_eff_parallel(ebins,
     
     :param ebins: ndarray, Array of energy bin edges. 
     :param zdbins: ndarray, Array of zenith distance bin edges.
-    :param correction_factors: bool, True or False.(Standard = True. If False, correction factor method is used.)
+    :param correction_factors: bool, True or False.(Standard = False. If True, correction factor method is used.)
     :param theta_square_cut: str, Maximum squared angular distance from source. (Standard = 0.085) 
     :param path: str, Base path of the folder, where the arrays are saved to and loaded from.
     :param n_chunks: int, Number of chunks, into which the read-in of simulated events is divided to. (Standard = 8)
