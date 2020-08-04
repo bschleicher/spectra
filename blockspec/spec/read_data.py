@@ -106,7 +106,7 @@ def calc_onoffhisto(data,
 
     if energy_function is None:
         def energy_function(x):
-            return ((LOG10(x["MHillas.fSize"])+0.7)-3)/1.22+3.05
+            return ((np.log10(x["MHillas.fSize"])+0.7)-3)/1.22+3.05
          
 
     data = data.dropna().copy()
