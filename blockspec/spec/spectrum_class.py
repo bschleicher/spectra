@@ -236,9 +236,7 @@ class Spectrum:
     def read_events(self):
         if self.energy_function is None:
             def energy_function(x):
-                return np.power(29.65 * x["MHillas.fSize"],
-                                                          (0.77 / np.cos((x["MPointingPos.fZd"] * 1.35 * np.pi)
-                                                            / 360))) + x["MNewImagePar.fLeakage2"] * 13000
+                return ((np.log10(x["MHillas.fSize"])+0.7)-3)/1.22+3.05
         else:
             energy_function = self.energy_function
 
