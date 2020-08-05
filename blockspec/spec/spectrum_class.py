@@ -503,7 +503,6 @@ class Spectrum:
 
         self.energy_center = bin_centers
         self.energy_error = bin_error
-        print(energy_function)
    
         return flux_de, flux_de_err_log10, bin_centers, bin_error
 
