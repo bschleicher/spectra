@@ -491,7 +491,7 @@ class Spectrum:
         if filename is not None:
             np.savetxt(filename+'.txt', (np.vstack((bin_centers,flux,bin_error,flux_err,flux_err)).T),header='bin_centers flux_de, bin_error (low&high), flux_de_error_log10 (low&high)')
             np.savetxt(filename+'flux_de_err.txt', (np.vstack((bin_centers,flux_de,bin_error,flux_de_err,flux_de_err)).T),header='bin_centers flux_de, bin_error (low&high), flux_de_error_log10 (low&high)')
-                 
+            np.savetxt(filename+'flux_de_err_andMore.txt', (np.vstack((bin_centers,flux_de,bin_error,flux_de_err,flux_de_err,self.excess_histo,exc_err)).T),header='bin_centers flux_de, bin_error (low&high), flux_de_error_log10 (low&high),ExcessHisto, exc_err')     
         
         flux_de_err_log10 = symmetric_log10_errors(flux_de, flux_de_err)
         if filename is not None:
