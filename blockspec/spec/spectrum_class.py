@@ -483,6 +483,7 @@ class Spectrum:
         flux = np.divide(self.excess_histo, np.sum(self.scaled_effective_area, axis=0))
         flux = np.divide(flux, self.total_on_time)
         exc_err = np.sqrt(self.on_histo + (1 / 25) * self.off_histo)
+        scaled_a_eff=np.sum(self.scaled_effective_area, axis=0)
         a_eff_err = np.sqrt(np.sum(self.scaled_effective_area_err**2))
         flux_err = flux * np.sqrt(np.ma.divide(exc_err, self.excess_histo)**2 +
                                   np.ma.divide(a_eff_err, np.sum(self.scaled_effective_area, axis=0))**2)
@@ -493,8 +494,8 @@ class Spectrum:
             np.savetxt(filename+'.txt', (np.vstack((bin_centers,flux,bin_error,flux_err,flux_err)).T),header='bin_centers flux_de, bin_error (low&high), flux_de_error_log10 (low&high)')
             np.savetxt(filename+'flux_de_err.txt', (np.vstack((bin_centers,flux_de,bin_error,flux_de_err,flux_de_err)).T),header='bin_centers flux_de, bin_error (low&high), flux_de_error_log10 (low&high)')
             np.savetxt(filename+'flux_de_err_andmore.txt', (np.vstack((bin_centers,flux_de,bin_error,flux_de_err,flux_de_err,self.excess_histo,exc_err)).T),header='bin_centers flux_de, bin_error (low&high), flux_de_error_log10 (low&high),ExcessHisto, exc_err')     
-            np.savetxt(filename+'Scaled_EffectiveArea.txt', (np.vstack((bin_centers,np.sum(self.scaled_effective_area, axis=0),bin_error,np.sqrt(np.sum(self.scaled_effective_area_err**2)))).T),header='bin_centers scaledEffectiveError, bin_error, scaledEffectiveAreaErr')
-            np.savetxt(filename+'EffectiveArea.txt', (np.vstack((bin_centers,np.sum(self.effective_area, axis=0),bin_error,np.sqrt(np.sum(self.effective_area_err**2)))).T),header='bin_centers EffectiveError, bin_error, scaledEffectiveAreaErr')
+            np.savetxt(filename+'Scaled_EffectiveArea.txt', (np.vstack((bin_centers,scaled_a_eff,bin_error,a_eff_err)).T),header='bin_centers scaledEffectiveError, bin_error, scaledEffectiveAreaErr')
+
         flux_de_err_log10 = symmetric_log10_errors(flux_de, flux_de_err)
         if filename is not None:
             np.savetxt(filename+'LogErrors.txt', (np.vstack((bin_centers,flux_de,bin_error,flux_de_err_log10)).T),header='bin_centers flux_de, bin_error (low&high), flux_de_error_log10 (low&high)') 
