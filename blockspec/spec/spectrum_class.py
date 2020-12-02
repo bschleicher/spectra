@@ -236,9 +236,8 @@ class Spectrum:
     def read_events(self):
         if self.energy_function is None:
             def energy_function(x):
-               return (np.power(29.65 * x["MHillas.fSize"],
-                             (0.77 / np.cos((x["MPointingPos.fZd"] * 1.35 * np.pi) / 360))) +
-                    x["MNewImagePar.fLeakage2"] * 13000)
+
+                return ((np.log10(x['MHillas.fSize'])+0.7)-3)/1.22+3.05
         else:
             energy_function = self.energy_function
 
@@ -490,18 +489,22 @@ class Spectrum:
 
         flux_de = np.divide(flux, np.divide(bin_width, 1000))
         flux_de_err = np.divide(flux_err, np.divide(bin_width, 1000))  # / (flux_de * np.log(10))
+        if filename is not None:
+            np.savetxt(filename+'.txt', (np.vstack((bin_centers,flux,bin_error,flux_err,flux_err)).T),header='bin_centers flux_de, bin_error (low&high), flux_de_error_log10 (low&high)')
+            np.savetxt(filename+'flux_de_err.txt', (np.vstack((bin_centers,flux_de,bin_error,flux_de_err,flux_de_err)).T),header='bin_centers flux_de, bin_error (low&high), flux_de_error_log10 (low&high)')
+            np.savetxt(filename+'flux_de_err_andmore.txt', (np.vstack((bin_centers,flux_de,bin_error,flux_de_err,flux_de_err,self.excess_histo,exc_err)).T),header='bin_centers flux_de, bin_error (low&high), flux_de_error_log10 (low&high),ExcessHisto, exc_err')     
+        
         flux_de_err_log10 = symmetric_log10_errors(flux_de, flux_de_err)
+        if filename is not None:
+            np.savetxt(filename+'LogErrors.txt', (np.vstack((bin_centers,flux_de,bin_error,flux_de_err_log10)).T),header='bin_centers flux_de, bin_error (low&high), flux_de_error_log10 (low&high)') 
+            np.savetxt(filename+'LogErrors_NumberOfPoints.txt', (np.vstack((bin_centers,flux_de,bin_error,flux_de_err_log10,self.excess_histo)).T),header='bin_centers flux_de, bin_error (low&high), flux_de_error_log10 (low&high), Number of Points per Energy Bin')
 
         self.differential_spectrum = flux_de
         self.differential_spectrum_err = flux_de_err_log10
 
         self.energy_center = bin_centers
         self.energy_error = bin_error
-
-        if filename is not None:
-            np.savetxt(filename+'.txt', (np.vstack((bin_centers,flux_de,bin_error,flux_de_err_log10)).T),header='bin_centers flux_de, bin_error (low&high), flux_de_error_log10 (low&high)') 
-            np.savetxt(filename+'_NumberOfPoints.txt', (np.vstack((bin_centers,flux_de,bin_error,flux_de_err_log10,self.excess_histo)).T),header='bin_centers flux_de, bin_error (low&high), flux_de_error_log10 (low&high), Number of Points per Energy Bin')
-            
+   
         return flux_de, flux_de_err_log10, bin_centers, bin_error
 
     ##########################################################
