@@ -236,6 +236,7 @@ class Spectrum:
     def read_events(self):
         if self.energy_function is None:
             def energy_function(x):
+
                 return ((np.log10(x['MHillas.fSize'])+0.7)-3)/1.22+3.05
         else:
             energy_function = self.energy_function
