@@ -486,6 +486,8 @@ class Spectrum:
             np.savetxt(filename+'EffectiveArea.txt', (np.vstack((bin_centers,np.sum(self.effective_area, axis=0))).T),header='bin_centers EffectiveArea')
             
         flux = np.divide(flux, self.total_on_time)
+        print(self.total_on_time)
+        
         exc_err = np.sqrt(self.on_histo + (1 / 25) * self.off_histo)
         scaled_a_eff=np.sum(self.scaled_effective_area, axis=0)
         a_eff_err = np.sqrt(np.sum(self.scaled_effective_area_err**2))
