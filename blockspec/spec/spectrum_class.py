@@ -495,7 +495,7 @@ class Spectrum:
         a_eff_err = np.sqrt(np.sum(self.scaled_effective_area_err**2))
         print(a_eff_err)
         flux_err = flux * np.sqrt(np.ma.divide(exc_err, self.excess_histo)**2 +
-                                  np.ma.divide(np.sum(self.scaled_effective_area_err,axis=0), self.scaled_effective_area)**2)
+                                  np.ma.divide(np.sum(self.scaled_effective_area_err,axis=0), np.sum(self.scaled_effective_area, axis=0))**2)
 
         flux_de = np.divide(flux, np.divide(bin_width, 1000))
         flux_de_err = np.divide(flux_err, np.divide(bin_width, 1000))  # / (flux_de * np.log(10))
