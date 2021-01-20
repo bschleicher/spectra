@@ -502,7 +502,8 @@ class Spectrum:
             np.savetxt(filename+'flux_de_err_andmore.txt', (np.vstack((bin_centers,flux_de,bin_error,flux_de_err,flux_de_err,self.excess_histo,exc_err)).T),header='bin_centers flux_de, bin_error (low&high), flux_de_error_log10 (low&high),ExcessHisto, exc_err')     
             np.savetxt(filename+'Scaled_EffectiveArea.txt', (np.vstack((bin_centers,scaled_a_eff)).T),header='bin_centers scaledEffectiveError') 
             
-            np.savetxt(filename+'error.txt',self.scaled_effective_area_err)
+            np.savetxt(filename+'EffectiveAreaerror.txt',self.scaled_effective_area_err)
+            np.savetxt(filename+'a_eff_err.txt',np.sqrt(np.sum(self.scaled_effective_area_err**2)))
             np.savetxt(filename+'errorSum.txt',np.sum(self.scaled_effective_area_err**2,axis=0))
         flux_de_err_log10 = symmetric_log10_errors(flux_de, flux_de_err)
         if filename is not None:
