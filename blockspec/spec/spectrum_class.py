@@ -491,6 +491,7 @@ class Spectrum:
         exc_err = np.sqrt(self.on_histo + (1 / 25) * self.off_histo)
         scaled_a_eff=np.sum(self.scaled_effective_area, axis=0)
         a_eff_err = np.sqrt(np.sum(self.scaled_effective_area_err**2))
+        print(a_eff_err)
         flux_err = flux * np.sqrt(np.ma.divide(exc_err, self.excess_histo)**2 +
                                   np.ma.divide(a_eff_err, np.sum(self.scaled_effective_area, axis=0))**2)
 
@@ -503,7 +504,6 @@ class Spectrum:
             np.savetxt(filename+'Scaled_EffectiveArea.txt', (np.vstack((bin_centers,scaled_a_eff)).T),header='bin_centers scaledEffectiveError') 
             
             np.savetxt(filename+'EffectiveAreaerror.txt',self.scaled_effective_area_err)
-            np.savetxt(filename+'a_eff_err.txt',np.sqrt(np.sum(self.scaled_effective_area_err**2)))
             np.savetxt(filename+'errorSum.txt',np.sum(self.scaled_effective_area_err**2,axis=0))
         flux_de_err_log10 = symmetric_log10_errors(flux_de, flux_de_err)
         if filename is not None:
