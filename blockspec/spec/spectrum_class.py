@@ -479,6 +479,8 @@ class Spectrum:
         self.scaled_effective_area = (self.effective_area * self.on_time_per_zd[:, np.newaxis]) / self.total_on_time
         self.scaled_effective_area_err = np.divide(self.effective_area_err * self.on_time_per_zd[:, np.newaxis],
                                                    self.total_on_time)
+        print(self.scaled_effective_area)
+        print(self.scaled_effective_area_err)
 
         flux = np.divide(self.excess_histo, np.sum(self.scaled_effective_area, axis=0))
         
